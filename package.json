@@ -6,10 +6,13 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "generate-assets": "node scripts/generate-assets.js"
+    "generate-assets": "node scripts/generate-assets.js",
+    "upload-assets": "node scripts/upload_assets_to_supabase.js"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.57.0",
+    "@google-cloud/vertexai": "^1.10.0",
+    "@google/genai": "^1.30.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.84.0",
     "@types/crypto-js": "^4.2.2",
@@ -24,6 +27,7 @@
     "ethers": "^6.15.0",
     "express": "^5.1.0",
     "lucide-react": "^0.263.1",
+    "openai": "^6.9.1",
     "pg": "^8.16.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
