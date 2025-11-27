@@ -16,7 +16,7 @@ const createBoxRoutes = require('./routes/boxes');
 const createAffiliateRoutes = require('./routes/affiliates');
 
 const app = express();
-const PORT = process.env.BACKEND_PORT || 3001;
+const PORT = process.env.PORT || process.env.BACKEND_PORT || 3001;
 
 // Middleware
 app.use(cors());
