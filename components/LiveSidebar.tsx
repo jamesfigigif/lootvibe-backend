@@ -3,6 +3,7 @@ import { RARITY_COLORS } from '../constants';
 import { Rarity } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { supabase } from '../services/supabaseClient';
+import { REAL_ITEMS_DB } from '../data/itemDatabase';
 
 interface Drop {
     id: string;
@@ -13,6 +14,9 @@ interface Drop {
     value: number;
     created_at: string;
 }
+
+const MOCK_USERNAMES = ['CryptoKing', 'LootMaster', 'SatoshiNakamoto', 'WhaleAlert', 'DiamondHands', 'MoonBoy', 'HODLer', 'BagHolder', 'VitalikFan', 'ElonMusk', 'DogeFather', 'ShibaInu', 'PepeFrog', 'WAGMI', 'NGMI', 'AlphaSeeker', 'BetaTester', 'GammaRay', 'DeltaForce', 'OmegaLul'];
+const MOCK_BOXES = ['Tech Box', 'Streetwear Box', 'Luxury Box', 'Crypto Box', 'Budget Box', 'Gamer Box', 'Sneaker Box'];
 
 export const LiveSidebar = () => {
     const [drops, setDrops] = useState<Drop[]>([]);
@@ -42,8 +46,31 @@ export const LiveSidebar = () => {
             })
             .subscribe();
 
+        // 3. Mock Drops Generator
+        const mockInterval = setInterval(() => {
+            if (Math.random() > 0.3) return; // Only trigger 30% of the time per interval
+
+            const randomItem = REAL_ITEMS_DB[Math.floor(Math.random() * REAL_ITEMS_DB.length)];
+            const randomUser = MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)] + Math.floor(Math.random() * 100);
+            const randomBox = MOCK_BOXES[Math.floor(Math.random() * MOCK_BOXES.length)];
+
+            const mockDrop: Drop = {
+                id: `mock-${Date.now()}-${Math.random()}`,
+                user_name: randomUser,
+                item_name: randomItem.name,
+                item_image: `https://ui-avatars.com/api/?name=${randomItem.name.replace(/ /g, '+')}&background=random`, // Fallback if no image
+                box_name: randomBox,
+                value: randomItem.value,
+                created_at: new Date().toISOString()
+            };
+
+            setDrops(prev => [mockDrop, ...prev].slice(0, 50));
+
+        }, 3000); // Check every 3 seconds
+
         return () => {
             subscription.unsubscribe();
+            clearInterval(mockInterval);
         };
     }, []);
 
