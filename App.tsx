@@ -24,7 +24,7 @@ import { generateCustomBox, generateBoxImage } from './services/geminiService';
 import { getUser, addTransaction, updateUserState, markFreeBoxClaimed } from './services/walletService';
 import { createOrder } from './services/orderService';
 import { createShipment } from './services/shippingService';
-import { X, Loader2, Sparkles, RefreshCw, DollarSign, Package, Filter, Search, Bitcoin, CreditCard, ChevronRight, Paintbrush, ArrowRight, Check, Shield, Info, Gift, Users, Skull, Swords, Truck, Pencil, Trophy } from 'lucide-react';
+import { X, Loader2, Sparkles, RefreshCw, DollarSign, Package, Filter, Search, Bitcoin, CreditCard, ChevronRight, Paintbrush, ArrowRight, Check, Shield, Info, Gift, Users, Skull, Swords, Truck, Pencil, Trophy, Gamepad2 } from 'lucide-react';
 
 export default function App() {
     const { user: clerkUser, isSignedIn, isLoaded } = useUser();
@@ -823,9 +823,9 @@ export default function App() {
 
                                         <button
                                             onClick={handleDemoOpen}
-                                            className="relative z-20 w-full mt-3 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 text-white font-bold py-3 rounded-xl border border-white/10 transition-all transform active:scale-95"
+                                            className="w-full bg-[#131b2e] hover:bg-[#1c263d] text-slate-300 font-bold py-4 rounded-xl border border-white/10 transition-colors flex items-center justify-center gap-2"
                                         >
-                                            \ud83c\udfae TRY FOR FREE
+                                            <Gamepad2 className="w-5 h-5" /> TRY FOR FREE
                                         </button>
                                     </div>
 

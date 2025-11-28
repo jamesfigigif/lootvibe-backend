@@ -14,7 +14,31 @@ interface Drop {
     created_at: string;
 }
 
-const MOCK_USERNAMES = ['CryptoKing', 'LootMaster', 'SatoshiNakamoto', 'WhaleAlert', 'DiamondHands', 'MoonBoy', 'HODLer', 'BagHolder', 'VitalikFan', 'ElonMusk', 'DogeFather', 'ShibaInu', 'PepeFrog', 'WAGMI', 'NGMI', 'AlphaSeeker', 'BetaTester', 'GammaRay', 'DeltaForce', 'OmegaLul'];
+const MOCK_USERNAMES = [
+    'CryptoKing', 'LootMaster', 'SatoshiNakamoto', 'WhaleAlert', 'DiamondHands', 'MoonBoy', 'HODLer', 'BagHolder', 'VitalikFan', 'ElonMusk',
+    'DogeFather', 'ShibaInu', 'PepeFrog', 'WAGMI', 'NGMI', 'AlphaSeeker', 'BetaTester', 'GammaRay', 'DeltaForce', 'OmegaLul',
+    'AlexG', 'Sarah_99', 'MikeT', 'EmmaW', 'ChrisP', 'JessicaL', 'DavidB', 'AshleyM', 'JamesR', 'AmandaK',
+    'RobertH', 'JenniferS', 'MichaelJ', 'LisaD', 'WilliamC', 'MaryF', 'DavidG', 'PatriciaH', 'RichardI', 'LindaJ',
+    'JosephK', 'BarbaraL', 'ThomasM', 'ElizabethN', 'CharlesO', 'SusanP', 'ChristopherQ', 'MargaretR', 'DanielS', 'JessicaT',
+    'MatthewU', 'SarahV', 'AnthonyW', 'KarenX', 'DonaldY', 'NancyZ', 'MarkA', 'LisaB', 'PaulC', 'BettyD',
+    'StevenE', 'DorothyF', 'AndrewG', 'SandraH', 'KennethI', 'AshleyJ', 'JoshuaK', 'KimberlyL', 'KevinM', 'DonnaN',
+    'BrianO', 'EmilyP', 'GeorgeQ', 'MichelleR', 'EdwardS', 'CarolT', 'RonaldU', 'AmandaV', 'TimothyW', 'MelissaX',
+    'JasonY', 'DeborahZ', 'JeffreyA', 'StephanieB', 'RyanC', 'RebeccaD', 'JacobE', 'LauraF', 'GaryG', 'SharonH',
+    'NicholasI', 'CynthiaJ', 'EricK', 'KathleenL', 'StephenM', 'AmyN', 'JonathanO', 'ShirleyP', 'LarryQ', 'AngelaR',
+    'JustinS', 'HelenT', 'ScottU', 'AnnaV', 'BrandonW', 'BrendaX', 'FrankY', 'PamelaZ', 'BenjaminA', 'NicoleB',
+    'GregoryC', 'SamanthaD', 'SamuelE', 'KatherineF', 'RaymondG', 'ChristineH', 'PatrickI', 'DebraJ', 'AlexanderK', 'RachelL',
+    'JackM', 'CatherineN', 'DennisO', 'CarolynP', 'JerryQ', 'JanetR', 'TylerS', 'RuthT', 'AaronU', 'MariaV',
+    'HenryW', 'HeatherX', 'JoseY', 'DianeZ', 'DouglasA', 'VirginiaB', 'PeterC', 'JulieD', 'AdamE', 'JoyceF',
+    'NathanG', 'VictoriaH', 'ZacharyI', 'OliviaJ', 'WalterK', 'KellyL', 'KyleM', 'ChristinaN', 'HaroldO', 'LaurenP',
+    'CarlQ', 'JoanR', 'JeremyS', 'EvelynT', 'KeithU', 'JudithV', 'RogerW', 'MeganX', 'GeraldY', 'CherylZ',
+    'EthanA', 'MarthaB', 'ArthurC', 'AndreaD', 'TerryE', 'FrancesF', 'ChristianG', 'HannahH', 'SeanI', 'JacquelineJ',
+    'LawrenceK', 'AnnL', 'AustinM', 'GloriaN', 'JoeO', 'JeanP', 'NoahQ', 'KathrynR', 'JesseS', 'AliceT',
+    'AlbertU', 'TeresaV', 'BryanW', 'SaraX', 'BillyY', 'JaniceZ', 'BruceA', 'DorisB', 'WillieC', 'MadisonD',
+    'JordanE', 'JuliaF', 'DylanG', 'GraceH', 'AlanI', 'JudyJ', 'RalphK', 'AbigailL', 'GabrielM', 'MarieN',
+    'RoyO', 'MarilynP', 'JuanQ', 'BeverlyR', 'WayneS', 'DeniseT', 'EugeneU', 'DanielleV', 'LoganW', 'MarilynX',
+    'RandyY', 'AmberZ', 'LouisA', 'BrittanyB', 'RussellC', 'RoseD', 'VincentE', 'DianaF', 'PhilipG', 'NatalieH',
+    'BobbyI', 'SophiaJ', 'JohnnyK', 'AlexisL', 'BradleyM', 'LoriN'
+];
 const MOCK_BOXES = ['Tech Box', 'Streetwear Box', 'Luxury Box', 'Crypto Box', 'Budget Box', 'Gamer Box', 'Sneaker Box'];
 
 // Collect all items from all boxes and filter to under $1500
