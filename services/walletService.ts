@@ -48,9 +48,12 @@ export const getUser = async (userId: string = 'user-1'): Promise<User> => {
         }
 
         // Create new user if not found
+        // Generate a unique username by adding timestamp to avoid conflicts
+        const uniqueUsername = `User_${userId.slice(-8)}_${Date.now().toString().slice(-4)}`;
+
         const newUser: User = {
             id: userId,
-            username: `User_${userId.slice(0, 6)}`,
+            username: uniqueUsername,
             balance: 1000, // Starting balance
             inventory: [],
             shipments: [],
@@ -59,21 +62,28 @@ export const getUser = async (userId: string = 'user-1'): Promise<User> => {
             nonce: 0,
         };
 
-        const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-                id: newUser.id,
-                username: newUser.username,
-                balance: newUser.balance,
-                avatar: newUser.avatar,
-                client_seed: newUser.clientSeed,
-                nonce: newUser.nonce,
-                free_box_claimed: false,
-            });
+        try {
+            const { error: insertError } = await supabase
+                .from('users')
+                .insert({
+                    id: newUser.id,
+                    username: newUser.username,
+                    balance: newUser.balance,
+                    avatar: newUser.avatar,
+                    client_seed: newUser.clientSeed,
+                    nonce: newUser.nonce,
+                    free_box_claimed: false,
+                });
 
-        if (insertError) {
-            console.error('Error creating user in database:', insertError);
-            // Return user anyway for offline mode
+            if (insertError) {
+                console.error('❌ Error creating user in database:', insertError);
+                console.error('Details:', JSON.stringify(insertError, null, 2));
+                // Return user anyway for offline mode
+            } else {
+                console.log('✅ User created successfully in database:', newUser.id);
+            }
+        } catch (dbError) {
+            console.error('❌ Database error during user creation:', dbError);
         }
 
         return newUser;

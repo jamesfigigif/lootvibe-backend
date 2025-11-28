@@ -30,9 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
       <button onClick={() => { onAffiliates(); setIsMobileMenuOpen(false); }} className="hover:text-white transition-colors text-purple-400 text-left flex items-center gap-2">
         <Users className="w-4 h-4" /> AFFILIATES
       </button>
-      <button onClick={() => { onAdmin(); setIsMobileMenuOpen(false); }} className="hover:text-white transition-colors text-orange-400 text-left flex items-center gap-2">
-        <Settings className="w-4 h-4" /> ADMIN
-      </button>
     </>
   );
 

@@ -8,7 +8,7 @@ export enum Rarity {
   LEGENDARY = 'LEGENDARY',
 }
 
-export type BoxCategory = 'ALL' | 'STREETWEAR' | 'TECH' | 'POKEMON' | 'GIFT_CARDS' | 'GAME_CODES' | 'FOOD' | 'SUBSCRIPTIONS' | 'CRYPTO';
+export type BoxCategory = 'ALL' | 'STREETWEAR' | 'TECH' | 'POKEMON' | 'GIFT_CARDS' | 'GAME_CODES' | 'FOOD' | 'SUBSCRIPTIONS' | 'CRYPTO' | 'SPORTS';
 
 export interface LootItem {
   id: string;

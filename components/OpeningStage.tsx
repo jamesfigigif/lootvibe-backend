@@ -20,6 +20,10 @@ interface OpeningStageProps {
 export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack, onComplete, isOpening, rollResult }) => {
   const [reelItems, setReelItems] = useState<LootItem[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const reelGeneratedRef = useRef(false); // Track if reel has been generated
+
+  // Use rollResult.item as the authoritative winner source
+  const actualWinner = rollResult?.item || winner;
 
   // Configuration
   const CARD_WIDTH = 200;
@@ -28,59 +32,61 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
   const WINNER_INDEX = 60; // Increased index for longer spin time
 
   useEffect(() => {
-    // Generate the reel items
-    const generateReel = () => {
-      const items: LootItem[] = [];
-      const totalItems = WINNER_INDEX + 10;
-
-      // Get best items for "Teasing" (Near misses)
-      const highTierItems = box.items.filter(i => i.rarity === Rarity.LEGENDARY || i.rarity === Rarity.EPIC);
-      const teaserItem = highTierItems.length > 0 ? highTierItems[0] : box.items[0];
-
-      for (let i = 0; i < totalItems; i++) {
-        if (i === WINNER_INDEX && winner) {
-          // The Result determined by Crypto Blocks
-          // IMPORTANT: Use the exact winner object to ensure it matches
-          items.push({ ...winner, id: `winner-${winner.id}` });
-          console.log('🎯 Winner placed at index', WINNER_INDEX, ':', winner.name);
-        } else if (i === WINNER_INDEX + 1 || i === WINNER_INDEX - 1) {
-          // TEASER LOGIC: Place a high value item right next to the winner
-          // This creates the "It almost stopped on the Rolex!" effect
-          // 50% chance to tease if available
-          if (Math.random() > 0.5 && highTierItems.length > 0) {
-            const randomTease = highTierItems[Math.floor(Math.random() * highTierItems.length)];
-            // Don't place the same item as the winner next to it if possible
-            items.push(randomTease.id !== winner?.id ? randomTease : box.items[0]);
-          } else {
-            const randomItem = box.items[Math.floor(Math.random() * box.items.length)];
-            items.push({ ...randomItem, id: `${randomItem.id}-${i}` });
-          }
-        } else {
-          // Weighted random filler
-          const randomItem = box.items[Math.floor(Math.random() * box.items.length)];
-          items.push({ ...randomItem, id: `${randomItem.id}-${i}` });
-        }
-      }
-      setReelItems(items);
-    };
-
-    if (winner) {
-      generateReel();
+    // Use the pre-generated reel from rollResult (generated in App.tsx)
+    // This ensures the reel is generated EXACTLY ONCE and matches the prize
+    if (rollResult?.preGeneratedReel && reelItems.length === 0) {
+      console.log('✅ Using pre-generated reel with winner:', actualWinner?.name);
+      setReelItems(rollResult.preGeneratedReel);
     }
-  }, [box, winner]);
+  }, [rollResult, actualWinner, reelItems.length]);
+
+  // Reset the ref when component unmounts (for next box opening)
+  useEffect(() => {
+    return () => {
+      reelGeneratedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (isOpening && scrollContainerRef.current && reelItems.length > 0) {
       // Calculate final position
       const containerWidth = window.innerWidth;
 
-      // Calculate the exact position to center the winner card
-      // WINNER_INDEX * TOTAL_CARD_WIDTH = position of the winner card's left edge
-      // + (CARD_WIDTH / 2) = move to the center of the winner card
-      // - (containerWidth / 2) = offset to center it in the viewport
-      const finalPosition = (WINNER_INDEX * TOTAL_CARD_WIDTH) + (CARD_WIDTH / 2) - (containerWidth / 2);
+      // The reel starts at x=0 (no initial offset)
+      // Each card is TOTAL_CARD_WIDTH (200px + 16px margin = 216px)
+      // Winner is at index 60
+      // We want the CENTER of the winner card to align with the CENTER of the screen
+      //
+      // Winner card left edge = WINNER_INDEX * TOTAL_CARD_WIDTH
+      // Winner card center = Winner card left edge + (CARD_WIDTH / 2)
+      // Screen center = containerWidth / 2
+      // 
+      // To center the winner card, we need to translate the reel by:
+      // -(Winner card center - Screen center)
+      // Which simplifies to: Screen center - Winner card center
 
-      console.log('🎰 Animation stopping at position:', finalPosition, 'for winner at index', WINNER_INDEX);
+      const winnerCardLeftEdge = WINNER_INDEX * TOTAL_CARD_WIDTH;
+      const winnerCardCenter = winnerCardLeftEdge + (CARD_WIDTH / 2);
+      const screenCenter = containerWidth / 2;
+      const finalPosition = winnerCardCenter - screenCenter;
+
+      console.log('🎰 Animation Config:');
+      console.log('  - Winner Index:', WINNER_INDEX);
+      console.log('  - Winner Item:', actualWinner?.name);
+      console.log('  - Item at Index', WINNER_INDEX, ':', reelItems[WINNER_INDEX]?.name);
+      console.log('  - Card Width:', CARD_WIDTH, 'px');
+      console.log('  - Total Card Width (with margin):', TOTAL_CARD_WIDTH, 'px');
+      console.log('  - Winner Card Left Edge:', winnerCardLeftEdge, 'px');
+      console.log('  - Winner Card Center:', winnerCardCenter, 'px');
+      console.log('  - Screen Center:', screenCenter, 'px');
+      console.log('  - Final Position (translateX):', finalPosition, 'px');
+
+      // Verify the winner is actually at WINNER_INDEX
+      if (reelItems[WINNER_INDEX]?.name !== actualWinner?.name) {
+        console.error('⚠️ MISMATCH! Winner not at expected index!');
+        console.error('  Expected:', actualWinner?.name);
+        console.error('  At index', WINNER_INDEX, ':', reelItems[WINNER_INDEX]?.name);
+      }
 
       const el = scrollContainerRef.current;
 
@@ -91,18 +97,18 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
       // Force Reflow
       el.getBoundingClientRect();
 
-      // 2. Animate
+      // 2. Animate - Faster 4s animation for better UX
       // cubic-bezier(0.15, 0.85, 0.35, 1.0) -> Starts fast, stays fast, then heavy braking at the end
-      el.style.transition = 'transform 7s cubic-bezier(0.15, 0.85, 0.35, 1.00)';
+      el.style.transition = 'transform 4s cubic-bezier(0.15, 0.85, 0.35, 1.00)';
       el.style.transform = `translateX(-${finalPosition}px)`;
 
       const timer = setTimeout(() => {
         onComplete();
-      }, 7500); // Wait slightly longer than transition
+      }, 4200); // Wait slightly longer than transition
 
       return () => clearTimeout(timer);
     }
-  }, [isOpening, onComplete, reelItems.length]);
+  }, [isOpening, onComplete, reelItems.length, actualWinner]);
 
   return (
     <div className="fixed inset-0 z-40 bg-[#0b0f19] flex flex-col">
@@ -135,7 +141,7 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
         <div className="w-full relative py-12">
           <div
             ref={scrollContainerRef}
-            className="flex items-center px-[50vw]" // Initial offset to start drawing from center
+            className="flex items-center"
             style={{ width: 'max-content', willChange: 'transform' }}
           >
             {reelItems.map((item, index) => (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, ArrowLeft, AlertCircle, Package } from 'lucide-react';
+import { ImageUpload } from './ImageUpload';
 
 interface LootItem {
     id: string;
@@ -304,17 +305,12 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
                                 placeholder="Brief description of the box..."
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-slate-300 mb-2">
-                                Image URL *
-                            </label>
-                            <input
-                                type="text"
-                                value={image}
-                                onChange={(e) => setImage(e.target.value)}
-                                className="w-full bg-[#0b0f19] border border-white/10 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
-                                placeholder="https://example.com/image.png"
-                                required
+                        <div className="md:col-span-2">
+                            <ImageUpload
+                                currentImage={image}
+                                onImageChange={setImage}
+                                folder="boxes"
+                                label="Box Image *"
                             />
                         </div>
                         <div>
@@ -341,11 +337,10 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
                                         key={tag}
                                         type="button"
                                         onClick={() => toggleTag(tag)}
-                                        className={`px-3 py-2 rounded-lg font-bold text-sm transition-colors ${
-                                            tags.includes(tag)
+                                        className={`px-3 py-2 rounded-lg font-bold text-sm transition-colors ${tags.includes(tag)
                                                 ? 'bg-orange-500 text-white'
                                                 : 'bg-[#0b0f19] border border-white/10 text-slate-400 hover:border-orange-500'
-                                        }`}
+                                            }`}
                                     >
                                         {tag}
                                     </button>
@@ -402,15 +397,11 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
                                         />
                                     </div>
                                     <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-slate-400 mb-1">
-                                            Image URL
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={item.image}
-                                            onChange={(e) => updateItem(index, 'image', e.target.value)}
-                                            className="w-full bg-[#131b2e] border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none"
-                                            placeholder="https://..."
+                                        <ImageUpload
+                                            currentImage={item.image}
+                                            onImageChange={(url) => updateItem(index, 'image', url)}
+                                            folder="items"
+                                            label="Item Image"
                                         />
                                     </div>
                                     <div>
@@ -449,11 +440,10 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
                                                     key={rarity}
                                                     type="button"
                                                     onClick={() => updateItem(index, 'rarity', rarity)}
-                                                    className={`px-3 py-2 rounded-lg font-bold text-xs transition-colors ${
-                                                        item.rarity === rarity
+                                                    className={`px-3 py-2 rounded-lg font-bold text-xs transition-colors ${item.rarity === rarity
                                                             ? 'bg-purple-600 text-white'
                                                             : 'bg-[#131b2e] border border-white/10 text-slate-400'
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {rarity}
                                                 </button>

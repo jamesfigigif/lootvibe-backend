@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useUser, SignInButton, SignUpButton } from './components/ClerkAuthWrapper';
 import { Navbar } from './components/Navbar';
@@ -13,6 +12,9 @@ import { AffiliatesPage } from './components/AffiliatesPage';
 import { ProvablyFairModal } from './components/ProvablyFairModal';
 import { ShippingModal } from './components/ShippingModal';
 import { AdminPanel } from './components/AdminPanel';
+import { LoadingSpinner } from './components/LoadingSpinner';
+import { LazyImage } from './components/LazyImage';
+import { ImageUploader } from './components/ImageUploader';
 import { CryptoDepositModal } from './components/CryptoDepositModal';
 import { WithdrawModal } from './components/WithdrawModal';
 import { LootBox, User, ViewState, Rarity, LootItem, BoxCategory, Battle, ShippingAddress } from './types';
@@ -22,7 +24,7 @@ import { generateCustomBox, generateBoxImage } from './services/geminiService';
 import { getUser, addTransaction, updateUserState, markFreeBoxClaimed } from './services/walletService';
 import { createOrder } from './services/orderService';
 import { createShipment } from './services/shippingService';
-import { X, Loader2, Sparkles, RefreshCw, DollarSign, Package, Filter, Search, Bitcoin, CreditCard, ChevronRight, Paintbrush, ArrowRight, Check, Shield, Info, Gift, Users, Skull, Swords, Truck } from 'lucide-react';
+import { X, Loader2, Sparkles, RefreshCw, DollarSign, Package, Filter, Search, Bitcoin, CreditCard, ChevronRight, Paintbrush, ArrowRight, Check, Shield, Info, Gift, Users, Skull, Swords, Truck, Pencil } from 'lucide-react';
 
 export default function App() {
     const { user: clerkUser, isSignedIn, isLoaded } = useUser();
@@ -64,6 +66,10 @@ export default function App() {
     const [selectedCrypto, setSelectedCrypto] = useState<'BTC' | 'ETH'>('BTC');
     const [showCryptoDeposit, setShowCryptoDeposit] = useState(false);
 
+    // Profile Edit State
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newUsername, setNewUsername] = useState('');
+
     // Scroll to top on view change
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -81,13 +87,19 @@ export default function App() {
         }
     }, [user?.id]);
 
-    // Check for referral code in URL
+    // Check for referral code and routes in URL
     useEffect(() => {
-        const handleReferral = async () => {
-            // Check for /r/USERNAME format
+        const handleUrlParams = async () => {
             const path = window.location.pathname;
-            const match = path.match(/\/r\/([a-zA-Z0-9]+)/);
 
+            // Handle Admin Route
+            if (path === '/admin') {
+                setView({ page: 'ADMIN' });
+                return;
+            }
+
+            // Check for /r/USERNAME format
+            const match = path.match(/\/r\/([a-zA-Z0-9]+)/);
             let referralCode = null;
 
             if (match && match[1]) {
@@ -100,15 +112,11 @@ export default function App() {
 
             if (referralCode) {
                 console.log('Found referral code:', referralCode);
-                // Store in localStorage for signup tracking
                 localStorage.setItem('referralCode', referralCode);
-
-                // If user is already logged in, we could track it now, but usually it's for new signups
-                // We'll handle the tracking in the auth flow or when creating a new user
             }
         };
 
-        handleReferral();
+        handleUrlParams();
     }, []);
 
     // Initialize user from Clerk
@@ -221,20 +229,46 @@ export default function App() {
 
         try {
             // 1. Generate Outcome (Provably Fair)
-            // We do this BEFORE deducting to ensure we have a valid result, 
-            // but in real app, backend does this atomically.
             const result = await generateOutcome(selectedBox.items, user.clientSeed, user.nonce);
             console.log('🎲 Generated outcome:', result.item.name, '| Value:', result.item.value, '| Random:', result.randomValue);
 
-            // 2. Create Order & Deduct Funds (via Service)
+            // 2. Generate the reel ONCE here (before component mounts)
+            const WINNER_INDEX = 60;
+            const totalItems = WINNER_INDEX + 10;
+            const reelItems: LootItem[] = [];
+            const highTierItems = selectedBox.items.filter(i => i.rarity === 'LEGENDARY' || i.rarity === 'EPIC');
+
+            for (let i = 0; i < totalItems; i++) {
+                if (i === WINNER_INDEX) {
+                    // Place the actual winner at index 60
+                    reelItems.push({ ...result.item, id: `winner - ${result.item.id} ` });
+                    console.log('🎯 PRE-GENERATED: Winner at index', WINNER_INDEX, ':', result.item.name);
+                } else if (i === WINNER_INDEX + 1 || i === WINNER_INDEX - 1) {
+                    // Teaser items next to winner
+                    if (Math.random() > 0.5 && highTierItems.length > 0) {
+                        const randomTease = highTierItems[Math.floor(Math.random() * highTierItems.length)];
+                        reelItems.push(randomTease.id !== result.item.id ? randomTease : selectedBox.items[0]);
+                    } else {
+                        const randomItem = selectedBox.items[Math.floor(Math.random() * selectedBox.items.length)];
+                        reelItems.push({ ...randomItem, id: `${randomItem.id} -${i} ` });
+                    }
+                } else {
+                    // Random filler
+                    const randomItem = selectedBox.items[Math.floor(Math.random() * selectedBox.items.length)];
+                    reelItems.push({ ...randomItem, id: `${randomItem.id} -${i} ` });
+                }
+            }
+
+            // 3. Create Order & Deduct Funds
             await createOrder(user.id, selectedBox, [result.item]);
 
-            // 3. Update Local User State (Nonce incremented)
+            // 4. Update Local User State
             await updateUserState(user.id, { nonce: user.nonce + 1 });
             const updatedUser = await getUser(user.id);
             setUser(updatedUser);
 
-            setRollResult(result);
+            // 5. Set result with pre-generated reel
+            setRollResult({ ...result, preGeneratedReel: reelItems });
             setView({ page: 'OPENING' });
             setIsOpening(true);
 
@@ -259,7 +293,7 @@ export default function App() {
 
     const handleSellItem = React.useCallback(async () => {
         if (!user || !rollResult) return;
-        await addTransaction(user.id, 'WIN', rollResult.item.value, `Sold item: ${rollResult.item.name}`);
+        await addTransaction(user.id, 'WIN', rollResult.item.value, `Sold item: ${rollResult.item.name} `);
         const updatedUser = await getUser(user.id);
         setUser(updatedUser);
         resetOpenState();
@@ -267,10 +301,13 @@ export default function App() {
 
     const handleKeepItem = React.useCallback(async () => {
         if (!user || !rollResult) return;
+        console.log('🎒 Adding item to inventory:', rollResult.item.name);
         // In real app, add to inventory service
         const updatedInventory = [...user.inventory, rollResult.item];
+        console.log('📦 Updated inventory:', updatedInventory.length, 'items');
         await updateUserState(user.id, { inventory: updatedInventory });
         const updatedUser = await getUser(user.id);
+        console.log('✅ User inventory after update:', updatedUser.inventory.length, 'items');
         setUser(updatedUser);
         resetOpenState();
     }, [user, rollResult, resetOpenState]);
@@ -312,7 +349,7 @@ export default function App() {
         playersArray[0] = user; // Creator is always slot 0
 
         const newBattle: Battle = {
-            id: `battle_${Date.now()}`,
+            id: `battle_${Date.now()} `,
             boxId: box.id,
             price: cost,
             playerCount: battlePlayerCount,
@@ -333,8 +370,8 @@ export default function App() {
             const timer = setTimeout(() => {
                 // Bot logic: fill one empty slot
                 const botUser: User = {
-                    id: `bot_${Date.now()}`,
-                    username: `Bot_${Math.floor(Math.random() * 100)}`,
+                    id: `bot_${Date.now()} `,
+                    username: `Bot_${Math.floor(Math.random() * 100)} `,
                     balance: 10000,
                     inventory: [],
                     shipments: [],
@@ -435,11 +472,25 @@ export default function App() {
         setIsReskinning(false);
     };
 
+    const handleUpdateUsername = async () => {
+        if (!user || !newUsername.trim()) return;
+
+        await updateUserState(user.id, { username: newUsername.trim() });
+        const updatedUser = await getUser(user.id);
+        setUser(updatedUser);
+        setIsEditingName(false);
+    };
+
     const filteredBoxes = boxes.filter(box => {
         const matchesCategory = activeCategory === 'ALL' || box.category === activeCategory;
         const matchesSearch = box.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
     });
+
+    const handleBoxClick = (box: LootBox) => {
+        setSelectedBox(box);
+        setView({ page: 'BOX_DETAIL' });
+    };
 
     const CATEGORIES: { id: BoxCategory; label: string }[] = [
         { id: 'ALL', label: 'All Boxes' },
@@ -448,6 +499,7 @@ export default function App() {
         { id: 'POKEMON', label: 'Pokemon' },
         { id: 'GIFT_CARDS', label: 'Gift Cards' },
         { id: 'CRYPTO', label: 'Crypto' },
+        { id: 'SPORTS', label: 'Sports' },
     ];
 
     return (
@@ -469,6 +521,8 @@ export default function App() {
                 onAdmin={() => setView({ page: 'ADMIN' })}
             />
 
+
+
             <div className="pt-20 flex min-h-screen">
 
                 {/* Main Content Area - Push right on XL screens to make room for sidebar */}
@@ -477,6 +531,8 @@ export default function App() {
                         <AffiliatesPage user={user} onBack={() => setView({ page: 'HOME' })} />
                     ) : view.page === 'ADMIN' ? (
                         <AdminPanel />
+                    ) : view.page === 'UPLOAD' ? (
+                        <ImageUploader />
                     ) : view.page === 'RACES' ? (
                         <RacePage />
                     ) : view.page === 'BATTLE_ARENA' && activeBattle ? (
@@ -570,7 +626,7 @@ export default function App() {
                                     {filteredBoxes.map(box => (
                                         <div
                                             key={box.id}
-                                            onClick={() => { setSelectedBox(box); setView({ page: 'BOX_DETAIL' }); }}
+                                            onClick={() => handleBoxClick(box)}
                                             className="group bg-[#131b2e] rounded-xl border border-white/5 overflow-hidden cursor-pointer hover:-translate-y-2 hover:shadow-[0_10px_40px_-10px_rgba(0,0,0,0.5)] hover:border-white/10 transition-all duration-300 relative"
                                         >
                                             <div className="absolute top-3 left-3 flex flex-col gap-1 z-10">
@@ -708,7 +764,11 @@ export default function App() {
                                                     <div className={`absolute top-0 inset-x-0 h-1 rounded-t-xl bg-gradient-to-r ${RARITY_GRADIENTS[item.rarity]}`}></div>
                                                     <div className="absolute top-2 right-2 text-[10px] font-bold opacity-60 bg-black/40 px-1.5 rounded backdrop-blur">{item.odds}%</div>
 
-                                                    <img src={item.image} className="w-24 h-24 object-contain mb-3 mt-2 group-hover:scale-110 transition-transform duration-300 drop-shadow-xl" />
+                                                    <LazyImage
+                                                        src={item.image}
+                                                        alt={item.name}
+                                                        className="w-24 h-24 object-contain mb-3 mt-2 group-hover:scale-110 transition-transform duration-300 drop-shadow-xl"
+                                                    />
 
                                                     <div className="w-full relative z-10">
                                                         <div className="text-sm font-bold leading-tight mb-1 line-clamp-2 text-slate-200 group-hover:text-white">{item.name}</div>
@@ -723,6 +783,7 @@ export default function App() {
                         </div>
                     ) : view.page === 'OPENING' && selectedBox ? (
                         <OpeningStage
+                            key={rollResult?.randomValue || Date.now()} // Force new instance per opening
                             box={selectedBox}
                             winner={rollResult?.item || null}
                             onBack={() => setView({ page: 'BOX_DETAIL' })}
@@ -739,7 +800,37 @@ export default function App() {
                                             <div className="absolute inset-0 bg-purple-500 blur-xl opacity-20 rounded-full"></div>
                                             <img src={user.avatar} className="relative w-24 h-24 rounded-full border-4 border-[#0b0f19] shadow-xl" />
                                         </div>
-                                        <h2 className="text-2xl font-bold">{user.username}</h2>
+
+                                        {isEditingName ? (
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <input
+                                                    type="text"
+                                                    value={newUsername}
+                                                    onChange={(e) => setNewUsername(e.target.value)}
+                                                    className="bg-[#0b0f19] border border-white/20 rounded px-2 py-1 text-white font-bold text-center w-40 focus:outline-none focus:border-purple-500"
+                                                    autoFocus
+                                                />
+                                                <button onClick={handleUpdateUsername} className="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-1 rounded transition-colors">
+                                                    <Check className="w-4 h-4" />
+                                                </button>
+                                                <button onClick={() => setIsEditingName(false)} className="bg-red-500/20 hover:bg-red-500/40 text-red-400 p-1 rounded transition-colors">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-2 mb-2 group">
+                                                <h2 className="text-2xl font-bold">{user.username}</h2>
+                                                <button
+                                                    onClick={() => {
+                                                        setNewUsername(user.username);
+                                                        setIsEditingName(true);
+                                                    }}
+                                                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white transition-all"
+                                                >
+                                                    <Pencil className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        )}
                                         <p className="text-slate-500 text-sm mb-6">Member since 2024</p>
 
                                         <div className="grid grid-cols-2 gap-4 w-full mb-6">
