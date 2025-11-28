@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useUser, SignInButton, SignUpButton } from './components/ClerkAuthWrapper';
+import { ClerkProvider, SignedIn, SignedOut, UserButton, useUser, SignInButton, SignUpButton, useClerk } from '@clerk/clerk-react';
 import { Navbar } from './components/Navbar';
 import { OpeningStage } from './components/OpeningStage';
 import { StatsHeader } from './components/StatsHeader';
@@ -133,9 +133,11 @@ export default function App() {
 
     // --- Handlers ---
 
+    const clerk = useClerk();
+
     const handleLogin = (fromWelcomeSpin = false) => {
         setIsWelcomeSpinPending(fromWelcomeSpin);
-        // Clerk handles auth UI - no need for custom modal
+        clerk.openSignIn();
     };
 
     const confirmLogin = async () => {
