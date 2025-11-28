@@ -594,6 +594,30 @@ export default function App() {
 
             {view.page !== 'OPENING' && view.page !== 'BATTLE_ARENA' && <StatsHeader />}
 
+            {/* Centered Balance Animation Overlay */}
+            {balanceIncrease && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none">
+                    <div className="animate-[float-up-center_2s_ease-out_forwards] flex flex-col items-center">
+                        <div className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-300 drop-shadow-[0_0_30px_rgba(16,185,129,0.5)]">
+                            +${balanceIncrease.toFixed(2)}
+                        </div>
+                        <div className="text-emerald-200 font-bold text-xl mt-2 animate-pulse">
+                            BALANCE UPDATED
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style>{`
+                @keyframes float-up-center {
+                    0% { opacity: 0; transform: scale(0.5) translateY(50px); }
+                    20% { opacity: 1; transform: scale(1.2) translateY(0); }
+                    40% { transform: scale(1); }
+                    80% { opacity: 1; transform: translateY(-50px); }
+                    100% { opacity: 0; transform: translateY(-100px); }
+                }
+            `}</style>
+
             <Navbar
                 user={user}
                 onLogin={() => setShowAuth(true)}
@@ -1091,21 +1115,34 @@ export default function App() {
                                             </button>
                                         </>
                                     ) : (
-                                        <button
-                                            onClick={() => {
-                                                resetOpenState();
-                                                setIsDemoMode(false);
-                                                handleOpenBox();
-                                            }}
-                                            className="col-span-2 group relative overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl py-4 transition-all duration-300 shadow-[0_0_30px_rgba(147,51,234,0.3)]"
-                                        >
-                                            <div className="flex flex-col items-center gap-1 relative z-10">
-                                                <span className="text-[10px] font-bold opacity-80 uppercase tracking-wide">That was a demo!</span>
-                                                <span className="flex items-center gap-2 font-bold text-lg">
-                                                    PLAY FOR REAL <Trophy className="w-4 h-4" />
-                                                </span>
-                                            </div>
-                                        </button>
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    resetOpenState();
+                                                    setIsDemoMode(false);
+                                                    handleOpenBox();
+                                                }}
+                                                className="col-span-2 group relative overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl py-4 transition-all duration-300 shadow-[0_0_30px_rgba(147,51,234,0.3)]"
+                                            >
+                                                <div className="flex flex-col items-center gap-1 relative z-10">
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase tracking-wide">That was a demo!</span>
+                                                    <span className="flex items-center gap-2 font-bold text-lg">
+                                                        PLAY FOR REAL <Trophy className="w-4 h-4" />
+                                                    </span>
+                                                </div>
+                                            </button>
+
+                                            <button
+                                                onClick={() => {
+                                                    resetOpenState();
+                                                    setIsDemoMode(false);
+                                                    setView({ page: 'HOME' });
+                                                }}
+                                                className="col-span-2 mt-2 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest py-2"
+                                            >
+                                                Exit Demo
+                                            </button>
+                                        </>
                                     )}
                                 </div>
 
@@ -1126,133 +1163,148 @@ export default function App() {
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
-            {showAuth && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
-                    <div className="bg-[#131b2e] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
-                        <div className="p-8 text-center">
-                            <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-600/20">
-                                <Package className="w-8 h-8 text-white" />
+            {
+                showAuth && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 overflow-y-auto">
+                        <div className="bg-[#131b2e] border border-white/10 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl">
+                            <div className="p-8 text-center">
+                                <div className="w-16 h-16 bg-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-purple-600/20">
+                                    <Package className="w-8 h-8 text-white" />
+                                </div>
+                                <h2 className="text-2xl font-bold mb-2">Welcome to LootVibe</h2>
+                                <p className="text-slate-400 mb-8">Sign in to start unboxing rare items.</p>
+
+                                <button onClick={confirmLogin} className="w-full bg-[#24292e] hover:bg-[#2f363d] text-white font-bold py-3 rounded-xl mb-3 flex items-center justify-center gap-3 transition-colors border border-white/5">
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-1.334 5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
+                                    Continue with GitHub (Clerk)
+                                </button>
+                                <button onClick={confirmLogin} className="w-full bg-white hover:bg-slate-200 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
+                                    Continue with Google (Clerk)
+                                </button>
+                                <button onClick={() => setShowAuth(false)} className="mt-6 text-sm text-slate-500 hover:text-white">Cancel</button>
                             </div>
-                            <h2 className="text-2xl font-bold mb-2">Welcome to LootVibe</h2>
-                            <p className="text-slate-400 mb-8">Sign in to start unboxing rare items.</p>
-
-                            <button onClick={confirmLogin} className="w-full bg-[#24292e] hover:bg-[#2f363d] text-white font-bold py-3 rounded-xl mb-3 flex items-center justify-center gap-3 transition-colors border border-white/5">
-                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-1.334 5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
-                                Continue with GitHub (Clerk)
-                            </button>
-                            <button onClick={confirmLogin} className="w-full bg-white hover:bg-slate-200 text-black font-bold py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
-                                <svg className="w-5 h-5" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
-                                Continue with Google (Clerk)
-                            </button>
-                            <button onClick={() => setShowAuth(false)} className="mt-6 text-sm text-slate-500 hover:text-white">Cancel</button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
-            {showDeposit && (
-                <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-sm">
-                    <div className="flex min-h-full items-center justify-center p-4">
-                        <div className="bg-[#131b2e] border border-white/10 rounded-2xl w-full max-w-lg p-0 overflow-hidden shadow-2xl relative">
-                            <div className="p-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-[#131b2e] z-10">
-                                <h2 className="text-xl font-bold font-display">Deposit Funds</h2>
-                                <button onClick={() => setShowDeposit(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
-                            </div>
+            {
+                showDeposit && (
+                    <div className="fixed inset-0 z-[100] overflow-y-auto bg-black/80 backdrop-blur-sm">
+                        <div className="flex min-h-full items-center justify-center p-4">
+                            <div className="bg-[#131b2e] border border-white/10 rounded-2xl w-full max-w-lg p-0 overflow-hidden shadow-2xl relative">
+                                <div className="p-6 border-b border-white/5 flex justify-between items-center sticky top-0 bg-[#131b2e] z-10">
+                                    <h2 className="text-xl font-bold font-display">Deposit Funds</h2>
+                                    <button onClick={() => setShowDeposit(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                </div>
 
-                            <div className="p-6 grid grid-cols-2 gap-4">
-                                <button
-                                    onClick={() => {
-                                        setSelectedCrypto('BTC');
-                                        setShowDeposit(false);
-                                        setShowCryptoDeposit(true);
-                                    }}
-                                    className="flex flex-col items-center justify-center p-6 rounded-xl border bg-[#0b0f19] border-white/10 text-slate-400 hover:bg-orange-500/10 hover:border-orange-500 hover:text-white transition-all gap-3"
-                                >
-                                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-slate-800 text-slate-400"><Bitcoin className="w-6 h-6" /></div>
-                                    <div className="font-bold">Bitcoin</div>
-                                    <div className="text-xs text-slate-500">BTC</div>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setSelectedCrypto('ETH');
-                                        setShowDeposit(false);
-                                        setShowCryptoDeposit(true);
-                                    }}
-                                    className="flex flex-col items-center justify-center p-6 rounded-xl border bg-[#0b0f19] border-white/10 text-slate-400 hover:bg-blue-500/10 hover:border-blue-500 hover:text-white transition-all gap-3"
-                                >
-                                    <div className="w-12 h-12 rounded-full flex items-center justify-center bg-slate-800 text-slate-400"><div className="font-bold text-lg">Ξ</div></div>
-                                    <div className="font-bold">Ethereum</div>
-                                    <div className="text-xs text-slate-500">ETH</div>
-                                </button>
-                            </div>
+                                <div className="p-6 grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCrypto('BTC');
+                                            setShowDeposit(false);
+                                            setShowCryptoDeposit(true);
+                                        }}
+                                        className="flex flex-col items-center justify-center p-6 rounded-xl border bg-[#0b0f19] border-white/10 text-slate-400 hover:bg-orange-500/10 hover:border-orange-500 hover:text-white transition-all gap-3"
+                                    >
+                                        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-slate-800 text-slate-400"><Bitcoin className="w-6 h-6" /></div>
+                                        <div className="font-bold">Bitcoin</div>
+                                        <div className="text-xs text-slate-500">BTC</div>
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedCrypto('ETH');
+                                            setShowDeposit(false);
+                                            setShowCryptoDeposit(true);
+                                        }}
+                                        className="flex flex-col items-center justify-center p-6 rounded-xl border bg-[#0b0f19] border-white/10 text-slate-400 hover:bg-blue-500/10 hover:border-blue-500 hover:text-white transition-all gap-3"
+                                    >
+                                        <div className="w-12 h-12 rounded-full flex items-center justify-center bg-slate-800 text-slate-400"><div className="font-bold text-lg">Ξ</div></div>
+                                        <div className="font-bold">Ethereum</div>
+                                        <div className="text-xs text-slate-500">ETH</div>
+                                    </button>
+                                </div>
 
-                            <div className="p-6 bg-[#0b0f19] border-t border-white/5">
-                                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
-                                    <div className="text-xs font-bold text-blue-400 mb-2">💡 Real Crypto Deposits</div>
-                                    <div className="text-xs text-slate-400">
-                                        Select a cryptocurrency above to get your unique deposit address. Funds are automatically credited after confirmations.
+                                <div className="p-6 bg-[#0b0f19] border-t border-white/5">
+                                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
+                                        <div className="text-xs font-bold text-blue-400 mb-2">💡 Real Crypto Deposits</div>
+                                        <div className="text-xs text-slate-400">
+                                            Select a cryptocurrency above to get your unique deposit address. Funds are automatically credited after confirmations.
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Provably Fair Modal */}
-            {user && (
-                <ProvablyFairModal
-                    isOpen={showProvablyFair}
-                    onClose={() => setShowProvablyFair(false)}
-                    user={user}
-                />
-            )}
+            {
+                user && (
+                    <ProvablyFairModal
+                        isOpen={showProvablyFair}
+                        onClose={() => setShowProvablyFair(false)}
+                        user={user}
+                    />
+                )
+            }
 
             {/* Shipping Modal */}
-            {showShipping && (
-                <ShippingModal
-                    items={selectedItemsToShip}
-                    onClose={() => {
-                        setShowShipping(false);
-                        setSelectedItemsToShip([]);
-                    }}
-                    onSubmit={handleShipmentSubmit}
-                />
-            )}
+            {
+                showShipping && (
+                    <ShippingModal
+                        items={selectedItemsToShip}
+                        onClose={() => {
+                            setShowShipping(false);
+                            setSelectedItemsToShip([]);
+                        }}
+                        onSubmit={handleShipmentSubmit}
+                    />
+                )
+            }
 
             {/* Crypto Deposit Modal */}
-            {user && (
-                <CryptoDepositModal
-                    isOpen={showCryptoDeposit}
-                    onClose={() => setShowCryptoDeposit(false)}
-                    userId={user.id}
-                    currency={selectedCrypto}
-                />
-            )}
+            {
+                user && (
+                    <CryptoDepositModal
+                        isOpen={showCryptoDeposit}
+                        onClose={() => setShowCryptoDeposit(false)}
+                        userId={user.id}
+                        currency={selectedCrypto}
+                    />
+                )
+            }
 
             {/* Withdraw Modal */}
-            {user && (
-                <WithdrawModal
-                    isOpen={showWithdraw}
-                    onClose={() => setShowWithdraw(false)}
-                    user={user}
-                />
-            )}
+            {
+                user && (
+                    <WithdrawModal
+                        isOpen={showWithdraw}
+                        onClose={() => setShowWithdraw(false)}
+                        user={user}
+                    />
+                )
+            }
 
             {/* Provably Fair Button */}
 
             {/* Floating Provably Fair Button (Bottom Left) */}
-            {user && (
-                <button
-                    onClick={() => setShowProvablyFair(true)}
-                    className="fixed bottom-4 left-4 z-40 bg-[#131b2e]/80 backdrop-blur border border-white/10 text-slate-400 hover:text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg transition-all hover:scale-105"
-                >
-                    <Shield className="w-4 h-4 text-emerald-500" /> PROVABLY FAIR
-                </button>
-            )}
+            {
+                user && (
+                    <button
+                        onClick={() => setShowProvablyFair(true)}
+                        className="fixed bottom-4 left-4 z-40 bg-[#131b2e]/80 backdrop-blur border border-white/10 text-slate-400 hover:text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-2 shadow-lg transition-all hover:scale-105"
+                    >
+                        <Shield className="w-4 h-4 text-emerald-500" /> PROVABLY FAIR
+                    </button>
+                )
+            }
 
-        </div>
+        </div >
     );
 }

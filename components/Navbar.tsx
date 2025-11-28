@@ -15,25 +15,10 @@ interface NavbarProps {
   onRaces: () => void;
   onAffiliates: () => void;
   onAdmin: () => void;
-  balanceIncrease?: number | null; // Amount to show in animation
-  onBalanceAnimationComplete?: () => void; // Callback when animation finishes
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDeposit, onWithdraw, onHome, onProfile, onBattles, onRaces, onAffiliates, onAdmin, balanceIncrease, onBalanceAnimationComplete }) => {
+export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDeposit, onWithdraw, onHome, onProfile, onBattles, onRaces, onAffiliates, onAdmin }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [showBalancePopup, setShowBalancePopup] = useState(false);
-
-  // Trigger animation when balanceIncrease changes
-  React.useEffect(() => {
-    if (balanceIncrease && balanceIncrease > 0) {
-      setShowBalancePopup(true);
-      const timer = setTimeout(() => {
-        setShowBalancePopup(false);
-        onBalanceAnimationComplete?.();
-      }, 2000); // Animation lasts 2 seconds
-      return () => clearTimeout(timer);
-    }
-  }, [balanceIncrease, onBalanceAnimationComplete]);
 
   const NavLinks = () => (
     <>
@@ -90,15 +75,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
                 onClick={onDeposit}
                 className="hidden md:flex items-center gap-3 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-4 py-2 rounded-lg hover:border-emerald-500/50 transition-all group relative"
               >
-                {/* Animated +$ Popup */}
-                {showBalancePopup && balanceIncrease && (
-                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 animate-[float-up_2s_ease-out_forwards] pointer-events-none">
-                    <div className="bg-gradient-to-r from-emerald-500 to-green-400 text-white px-4 py-2 rounded-lg font-bold text-lg shadow-lg shadow-emerald-500/50">
-                      +${balanceIncrease.toFixed(2)}
-                    </div>
-                  </div>
-                )}
-
                 <div className="bg-emerald-500/20 p-1 rounded">
                   <Wallet className="w-4 h-4 text-emerald-400" />
                 </div>

@@ -66,7 +66,7 @@ export const LiveSidebar = () => {
         let mockTimeout: NodeJS.Timeout;
 
         const scheduleNextDrop = () => {
-            const randomDelay = Math.floor(Math.random() * 4000) + 8000; // 8-12 seconds
+            const randomDelay = Math.floor(Math.random() * 120000) + 60000; // 1-3 minutes (60000 - 180000 ms)
 
             mockTimeout = setTimeout(async () => {
                 // Use real prize items under $1500
