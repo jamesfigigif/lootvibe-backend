@@ -262,7 +262,7 @@ export default function App() {
             }
 
             // 3. Create Order & Deduct Funds
-            await createOrder(user.id, selectedBox, [result.item]);
+            await createOrder(user.id, selectedBox, [result.item], user.username, user.avatar);
 
             // 4. Update Local User State
             await updateUserState(user.id, { nonce: user.nonce + 1 });

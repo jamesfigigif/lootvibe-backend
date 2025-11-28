@@ -3,7 +3,9 @@ import { addTransaction } from './walletService';
 
 let orders: Order[] = [];
 
-export const createOrder = async (userId: string, box: LootBox, items: LootItem[]): Promise<Order> => {
+import { supabase } from './supabaseClient';
+
+export const createOrder = async (userId: string, box: LootBox, items: LootItem[], userName?: string, userAvatar?: string): Promise<Order> => {
     // 1. Deduct funds
     await addTransaction(userId, 'PURCHASE', box.price, `Opened box: ${box.name}`);
 
@@ -26,6 +28,24 @@ export const createOrder = async (userId: string, box: LootBox, items: LootItem[
         await trackWager(userId, box.price);
     } catch (e) {
         console.error('Failed to track affiliate wager:', e);
+    }
+
+    // 4. Add to Live Drops (Realtime)
+    if (userName && items.length > 0) {
+        // Find the most valuable item to show
+        const bestItem = items.reduce((prev, current) => (prev.value > current.value) ? prev : current);
+
+        try {
+            await supabase.from('live_drops').insert({
+                user_name: userName,
+                item_name: bestItem.name,
+                item_image: bestItem.image,
+                box_name: box.name,
+                value: bestItem.value
+            });
+        } catch (e) {
+            console.error('Failed to add live drop:', e);
+        }
     }
 
     return order;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RARITY_COLORS } from '../constants';
 import { Rarity } from '../types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { supabase } from '../services/supabaseClient';
 
 interface Drop {
     id: string;
@@ -15,49 +16,40 @@ interface Drop {
 
 export const LiveSidebar = () => {
     const [drops, setDrops] = useState<Drop[]>([]);
-    const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
-
-    const fetchDrops = async () => {
-        try {
-            const res = await fetch(`${BACKEND_URL}/api/live-drops`);
-            if (res.ok) {
-                const data = await res.json();
-                setDrops(data.drops || []);
-            }
-        } catch (e) {
-            console.error('Live drops fetch error', e);
-        }
-    };
 
     useEffect(() => {
-        fetchDrops();
-        const interval = setInterval(fetchDrops, 15000);
-        return () => clearInterval(interval);
+        // 1. Fetch initial drops
+        const fetchInitialDrops = async () => {
+            const { data, error } = await supabase
+                .from('live_drops')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(20);
+
+            if (data) {
+                setDrops(data);
+            }
+        };
+
+        fetchInitialDrops();
+
+        // 2. Subscribe to new drops
+        const subscription = supabase
+            .channel('live_drops_channel')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_drops' }, (payload) => {
+                const newDrop = payload.new as Drop;
+                setDrops(prev => [newDrop, ...prev].slice(0, 50));
+            })
+            .subscribe();
+
+        return () => {
+            subscription.unsubscribe();
+        };
     }, []);
 
     // Helper to format time with timezone correction
     const formatTimeAgo = (dateString: string) => {
         const date = parseISO(dateString);
-        const now = new Date();
-        const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-        // If difference is roughly 7 hours (timezone artifact), adjust the date
-        if (Math.abs(diffInHours) > 6 && Math.abs(diffInHours) < 8) {
-            // Add the offset to make it relative to now
-            // If diff is +7h, we subtract 7h from now (or add 7h to date) to match
-            // Actually, if it says "7 hours ago", date is 7h behind. We need to bring it forward.
-            // But wait, if it's a constant offset, we just want the *relative* time.
-            // The easiest way is to subtract the 7h offset from the diff.
-
-            // Let's just use the difference from the "expected" offset
-            // If the drop was just made, diff is 7h. We want 0.
-            // If drop was 10m ago, diff is 7h 10m. We want 10m.
-            // So we subtract 7h (approx) from the diff?
-            // Better: just add 7 hours to the date object.
-            const adjustedDate = new Date(date.getTime() + (7 * 60 * 60 * 1000));
-            return formatDistanceToNow(adjustedDate, { addSuffix: true });
-        }
-
         return formatDistanceToNow(date, { addSuffix: true });
     };
 
