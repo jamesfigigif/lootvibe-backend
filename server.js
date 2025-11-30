@@ -11,9 +11,11 @@ const BlockchainMonitor = require('./services/BlockchainMonitor');
 const AdminAuthService = require('./services/AdminAuthService');
 const LiveDropService = require('./services/LiveDropService');
 const { authenticateAdmin, requirePermission } = require('./middleware/adminAuth');
+const { authenticateUser } = require('./middleware/auth');
 const createAdminRoutes = require('./routes/admin');
 const createBoxRoutes = require('./routes/boxes');
 const createAffiliateRoutes = require('./routes/affiliates');
+const createBattleRoutes = require('./routes/battles');
 
 const app = express();
 const PORT = process.env.PORT || process.env.BACKEND_PORT || 3001;
@@ -295,6 +297,9 @@ app.use('/api/admin/boxes', createBoxRoutes(supabase, adminAuthService, authenti
 // Affiliate routes
 app.use('/api/affiliates', createAffiliateRoutes(supabase));
 
+// Battle routes
+app.use('/api/battles', createBattleRoutes(supabase));
+
 // Health check
 app.get('/health', (req, res) => {
     res.json({
@@ -306,14 +311,15 @@ app.get('/health', (req, res) => {
 /**
  * Request withdrawal
  * POST /api/withdrawals/request
- * Body: { userId, amount, currency, address }
+ * Body: { amount, currency, address }
  */
-app.post('/api/withdrawals/request', async (req, res) => {
+app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res) => {
     try {
-        const { userId, amount, currency, address } = req.body;
+        const { amount, currency, address } = req.body;
+        const userId = req.user.id; // From auth middleware
 
         // Validation
-        if (!userId || !amount || !currency || !address) {
+        if (!amount || !currency || !address) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -321,45 +327,42 @@ app.post('/api/withdrawals/request', async (req, res) => {
             return res.status(400).json({ error: 'Minimum withdrawal amount is $25' });
         }
 
-        // Get user balance
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('balance')
-            .eq('id', userId)
-            .single();
-
-        if (userError || !user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        if (parseFloat(user.balance) < amount) {
-            return res.status(400).json({ error: 'Insufficient balance' });
-        }
-
         // Check platform settings for auto-approval
         let autoApprove = false;
+        let manualApprovalThreshold = 1000; // Default threshold
         try {
             const { data: settings } = await supabase
                 .from('platform_settings')
-                .select('auto_approve_withdrawals')
+                .select('auto_approve_withdrawals, manual_approval_threshold')
                 .eq('id', 'default')
                 .single();
 
-            autoApprove = settings?.auto_approve_withdrawals || false;
+            if (settings) {
+                const isAutoApproveEnabled = settings.auto_approve_withdrawals || false;
+                manualApprovalThreshold = parseFloat(settings.manual_approval_threshold) || 1000;
+
+                // Auto-approve only if:
+                // 1. Auto-approve is enabled AND
+                // 2. Withdrawal amount is below the manual approval threshold
+                if (isAutoApproveEnabled && amount < manualApprovalThreshold) {
+                    autoApprove = true;
+                }
+            }
         } catch (e) {
             // If platform_settings doesn't exist, default to manual approval
             console.log('Platform settings not found, defaulting to manual approval');
         }
 
-        // Deduct balance
-        const newBalance = parseFloat(user.balance) - amount;
+        // Atomically decrement balance
         const { error: balanceError } = await supabase
-            .from('users')
-            .update({ balance: newBalance })
-            .eq('id', userId);
+            .rpc('decrement_balance', {
+                user_id: userId,
+                amount: amount
+            });
 
         if (balanceError) {
-            return res.status(500).json({ error: 'Failed to update balance' });
+            console.error('Balance update error:', balanceError);
+            return res.status(400).json({ error: balanceError.message || 'Insufficient balance or error updating funds' });
         }
 
         // Create withdrawal record
@@ -381,11 +384,11 @@ app.post('/api/withdrawals/request', async (req, res) => {
             });
 
         if (withdrawalError) {
-            // Rollback balance
-            await supabase
-                .from('users')
-                .update({ balance: user.balance })
-                .eq('id', userId);
+            // Rollback balance (refund)
+            await supabase.rpc('increment_balance', {
+                user_id: userId,
+                amount: amount
+            });
 
             console.error('Withdrawal creation error:', withdrawalError);
             return res.status(500).json({ error: 'Failed to create withdrawal request' });
@@ -396,8 +399,10 @@ app.post('/api/withdrawals/request', async (req, res) => {
             withdrawalId,
             status,
             message: autoApprove
-                ? 'Withdrawal approved automatically and will be processed shortly'
-                : 'Withdrawal request submitted. Awaiting admin approval.'
+                ? `Withdrawal approved automatically (below $${manualApprovalThreshold} threshold) and will be processed shortly`
+                : amount >= manualApprovalThreshold
+                    ? `Withdrawal request submitted. Amount exceeds $${manualApprovalThreshold} threshold and requires manual approval.`
+                    : 'Withdrawal request submitted. Awaiting admin approval.'
         });
 
     } catch (error) {
