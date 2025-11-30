@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { SignInButton } from '../components/ClerkAuthWrapper';
 import { Wallet, LogOut, Package, UserCircle2, Settings, Bell, Menu, X, Trophy, Users } from 'lucide-react';
+import { NotificationDropdown } from './NotificationDropdown';
+import { getUnreadCount } from '../services/notificationService';
+import { supabase } from '../services/supabaseClient';
 
 interface NavbarProps {
   user: User | null;
@@ -20,6 +23,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDeposit, onWithdraw, onHome, onProfile, onBattles, onRaces, onAffiliates, onAdmin }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [displayedBalance, setDisplayedBalance] = useState(0);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Animate balance changes
   React.useEffect(() => {
@@ -57,6 +62,75 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
 
     requestAnimationFrame(animate);
   }, [user?.balance]);
+
+  // Fetch unread notification count and set up real-time subscription
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    let debounceTimer: NodeJS.Timeout;
+    const debouncedFetchCount = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        try {
+          const count = await getUnreadCount(user.id);
+          setUnreadCount(count);
+        } catch (error) {
+          console.error('Error fetching unread count:', error);
+        }
+      }, 15000); // Debounce by 15 seconds to reduce polling frequency
+    };
+
+    // Initial fetch
+    const fetchUnreadCount = async () => {
+      try {
+        const count = await getUnreadCount(user.id);
+        setUnreadCount(count);
+      } catch (error) {
+        console.error('Error fetching unread count:', error);
+      }
+    };
+
+    fetchUnreadCount();
+
+    // Set up real-time subscription for new notifications (with longer debounce)
+    const channel = supabase
+      .channel('navbar-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Debounced refresh when new notification arrives (15 seconds)
+          debouncedFetchCount();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          // Debounced refresh when notification is marked as read (15 seconds)
+          debouncedFetchCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const NavLinks = () => (
     <>
@@ -106,9 +180,19 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-4 z-50">
+        <div className="flex items-center gap-2 md:gap-4 z-50">
           {user ? (
             <>
+              {/* Mobile Wallet Display */}
+              <button
+                onClick={onDeposit}
+                className="flex md:hidden items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:border-emerald-500/50 transition-all group"
+              >
+                <Wallet className="w-4 h-4 text-emerald-400" />
+                <span className="font-mono font-bold text-emerald-400 text-sm">${displayedBalance.toFixed(2)}</span>
+              </button>
+
+              {/* Desktop Wallet Display */}
               <button
                 onClick={onDeposit}
                 className="hidden md:flex items-center gap-3 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-4 py-2 rounded-lg hover:border-emerald-500/50 transition-all group relative"
@@ -133,13 +217,36 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
                 <span className="text-sm font-bold text-purple-400">WITHDRAW</span>
               </button>
 
-              <button className="relative text-slate-400 hover:text-white transition-colors hidden sm:block">
-                <Bell className="w-5 h-5" />
-                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                  className="relative text-slate-400 hover:text-white transition-colors"
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white px-1">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                {isNotificationOpen && user ? (
+                  <NotificationDropdown
+                    user={user}
+                    isOpen={isNotificationOpen}
+                    onClose={() => setIsNotificationOpen(false)}
+                  />
+                ) : isNotificationOpen && !user ? (
+                  <div className="fixed sm:absolute top-20 right-4 sm:right-0 w-[calc(100vw-2rem)] sm:w-96 bg-[#131b2e] border border-white/10 rounded-xl shadow-2xl z-50 p-4">
+                    <p className="text-sm text-slate-400">Please wait, loading user...</p>
+                  </div>
+                ) : null}
+              </div>
 
               <div className="relative group">
-                <button onClick={onProfile} className="flex items-center gap-3 pl-2 pr-1 py-1 hover:bg-white/5 rounded-lg transition-colors">
+                <button
+                  onClick={onProfile}
+                  className="flex items-center gap-3 pl-2 pr-1 py-1 hover:bg-white/5 rounded-lg transition-colors"
+                >
                   <div className="flex flex-col items-end hidden md:flex">
                     <span className="font-bold text-sm text-white">{user.username}</span>
                     <span className="text-[10px] text-slate-400">Level 42</span>
@@ -148,6 +255,24 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
                     <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
                   </div>
                 </button>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 top-full mt-2 w-48 bg-[#131b2e] border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 overflow-hidden z-50">
+                  <button
+                    onClick={onProfile}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-white/5 transition-colors flex items-center gap-3 border-b border-white/5"
+                  >
+                    <UserCircle2 className="w-4 h-4 text-purple-400" />
+                    <span className="font-medium">Profile</span>
+                  </button>
+                  <button
+                    onClick={onLogout}
+                    className="w-full px-4 py-3 text-left text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-3"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="font-medium">Sign Out</span>
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -161,7 +286,12 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
           {/* Mobile Menu Toggle */}
           <button
             className="lg:hidden text-slate-400 hover:text-white"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            onClick={() => {
+              setIsMobileMenuOpen(!isMobileMenuOpen);
+              if (!isMobileMenuOpen) {
+                setIsNotificationOpen(false); // Close notification dropdown when opening mobile menu
+              }
+            }}
           >
             {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -175,11 +305,6 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
               <SignInButton mode="modal">
                 <button onClick={() => setIsMobileMenuOpen(false)} className="bg-white text-black py-3 rounded-lg font-bold text-center">SIGN IN</button>
               </SignInButton>
-            )}
-            {user && (
-              <button onClick={() => { onDeposit(); setIsMobileMenuOpen(false); }} className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 py-3 rounded-lg font-bold text-center">
-                DEPOSIT FUNDS (${user.balance.toFixed(2)})
-              </button>
             )}
           </div>
         )}

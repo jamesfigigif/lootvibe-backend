@@ -18,9 +18,10 @@ export function hashSeed(seed: string): string {
 }
 
 /**
- * Generates a result using HMAC-SHA256(serverSeed, clientSeed:nonce)
+ * Generates a result using HMAC-SHA256(serverSeed, clientSeed: nonce)
  * This is the standard Provably Fair algorithm.
- */
+ * @deprecated Use backend API / api / battles / spin instead
+  */
 export const generateOutcome = async (
   items: LootItem[],
   clientSeed: string,
@@ -73,6 +74,13 @@ export const generateOutcome = async (
   return result;
 };
 
+/**
+ * Verify a box opening outcome using provably fair parameters
+ * @param serverSeed The server seed (revealed after outcome)
+ * @param clientSeed The client seed (user's seed)
+ * @param nonce The nonce used for this opening
+ * @returns The random value (0-1) that was used to determine the outcome
+ */
 export const verifyOutcome = (
   serverSeed: string,
   clientSeed: string,
@@ -83,6 +91,21 @@ export const verifyOutcome = (
   const subHash = hmac.substring(0, 8);
   const decimal = parseInt(subHash, 16);
   return decimal / Math.pow(2, 32);
+};
+
+/**
+ * Verify that a server seed matches a server seed hash
+ * This ensures the server seed wasn't changed after committing the hash
+ * @param serverSeed The actual server seed
+ * @param serverSeedHash The hash that was committed before the outcome
+ * @returns true if the seed matches the hash
+ */
+export const verifyServerSeedHash = (
+  serverSeed: string,
+  serverSeedHash: string
+): boolean => {
+  const calculatedHash = CryptoJS.SHA256(serverSeed).toString();
+  return calculatedHash.toLowerCase() === serverSeedHash.toLowerCase();
 };
 
 export const rotateServerSeed = () => {

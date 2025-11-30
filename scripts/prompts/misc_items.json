@@ -262,22 +262,27 @@
     {
         "name": "bm35",
         "folder": "items",
-        "prompt": "Random Steam Key. Digital game code with glitch effect, mystery game, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
+        "prompt": "Corsair LL120 RGB PC cooling fan. Premium 120mm case fan with dual RGB light loops, black frame, vibrant purple blue and pink lighting effects, high-tech cooling solution, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
     },
     {
         "name": "bm36",
         "folder": "items",
-        "prompt": "USB-C Cable. Black coiled cable, tech accessory, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
+        "prompt": "505 Games Control Ultimate Edition Steam Digital Code. Holographic game code card with Steam logo, Control game artwork, purple and blue neon accents, digital key card, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
     },
     {
         "name": "bm37",
         "folder": "items",
-        "prompt": "LootVibe Sticker. Purple logo sticker, brand swag, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
+        "prompt": "Capcom Resident Evil 3 Steam Digital Code. Holographic game code card with Steam logo, RE3 logo and Jill Valentine artwork, red and black horror theme, digital key card, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
     },
     {
         "name": "bm38",
         "folder": "items",
         "prompt": "LootVibe Keychain. Purple branded keychain, small accessory, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
+    },
+    {
+        "name": "ab10",
+        "folder": "items",
+        "prompt": "Apple logo sticker. White Apple logo on a glossy vinyl sticker with subtle drop shadow, minimalistic and clean, floating in void, Cyberpunk style, dark background, glowing neon effects, high contrast, 3D render, 8k resolution, unreal engine 5 style."
     },
     {
         "name": "rc1",

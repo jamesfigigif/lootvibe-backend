@@ -9,6 +9,7 @@ interface OpeningStageProps {
   onBack: () => void;
   onComplete: () => void;
   isOpening: boolean;
+  isDemoMode?: boolean;
   // Updated Prop Type for Block Data
   rollResult: {
     item: LootItem;
@@ -17,7 +18,7 @@ interface OpeningStageProps {
   } | null;
 }
 
-export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack, onComplete, isOpening, rollResult }) => {
+export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack, onComplete, isOpening, rollResult, isDemoMode = false }) => {
   const [reelItems, setReelItems] = useState<LootItem[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const reelGeneratedRef = useRef(false); // Track if reel has been generated
@@ -35,7 +36,6 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
     // Use the pre-generated reel from rollResult (generated in App.tsx)
     // This ensures the reel is generated EXACTLY ONCE and matches the prize
     if (rollResult?.preGeneratedReel && reelItems.length === 0) {
-      console.log('✅ Using pre-generated reel with winner:', actualWinner?.name);
       setReelItems(rollResult.preGeneratedReel);
     }
   }, [rollResult, actualWinner, reelItems.length]);
@@ -70,24 +70,6 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
       const screenCenter = containerWidth / 2;
       const finalPosition = winnerCardCenter - screenCenter;
 
-      console.log('🎰 Animation Config:');
-      console.log('  - Winner Index:', WINNER_INDEX);
-      console.log('  - Winner Item:', actualWinner?.name);
-      console.log('  - Item at Index', WINNER_INDEX, ':', reelItems[WINNER_INDEX]?.name);
-      console.log('  - Card Width:', CARD_WIDTH, 'px');
-      console.log('  - Total Card Width (with margin):', TOTAL_CARD_WIDTH, 'px');
-      console.log('  - Winner Card Left Edge:', winnerCardLeftEdge, 'px');
-      console.log('  - Winner Card Center:', winnerCardCenter, 'px');
-      console.log('  - Screen Center:', screenCenter, 'px');
-      console.log('  - Final Position (translateX):', finalPosition, 'px');
-
-      // Verify the winner is actually at WINNER_INDEX
-      if (reelItems[WINNER_INDEX]?.name !== actualWinner?.name) {
-        console.error('⚠️ MISMATCH! Winner not at expected index!');
-        console.error('  Expected:', actualWinner?.name);
-        console.error('  At index', WINNER_INDEX, ':', reelItems[WINNER_INDEX]?.name);
-      }
-
       const el = scrollContainerRef.current;
 
       // 1. Reset
@@ -118,7 +100,14 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
           <ChevronLeft className="w-5 h-5" />
           <span className="font-bold">EXIT</span>
         </button>
-        <div className="font-display font-bold text-xl tracking-widest text-purple-500 uppercase">{box.name}</div>
+        <div className="font-display font-bold text-xl tracking-widest text-purple-500 uppercase flex items-center gap-3">
+          {box.name}
+          {isDemoMode && (
+            <span className="text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30 px-3 py-1 rounded-full font-bold tracking-wider">
+              DEMO MODE
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           <button
             onClick={onComplete}

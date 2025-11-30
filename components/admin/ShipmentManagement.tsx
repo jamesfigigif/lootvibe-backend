@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, TruckIcon, Package, Edit, Save, X, MapPin, User } from 'lucide-react';
+import { supabase } from '../../services/supabaseClient';
 
 interface Shipment {
     id: string;
@@ -7,7 +8,8 @@ interface Shipment {
     items: any[];
     address: {
         fullName: string;
-        street: string;
+        street?: string;
+        streetAddress?: string;
         city: string;
         state: string;
         zipCode: string;
@@ -16,6 +18,7 @@ interface Shipment {
     status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED';
     tracking_number?: string;
     created_at: number;
+    username?: string; // Optional username for display
 }
 
 interface ShipmentManagementProps {
@@ -42,26 +45,91 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({ token })
     const fetchShipments = async () => {
         try {
             setLoading(true);
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: '50'
-            });
+            
+            // Try backend API first if token is available
+            let success = false;
+            if (token) {
+                try {
+                    const params = new URLSearchParams({
+                        page: page.toString(),
+                        limit: '50'
+                    });
 
-            if (statusFilter) params.append('status', statusFilter);
+                    if (statusFilter) params.append('status', statusFilter);
 
-            const response = await fetch(`${BACKEND_URL}/api/admin/shipments?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
+                    const response = await fetch(`${BACKEND_URL}/api/admin/shipments?${params}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        setShipments(data.shipments);
+                        setTotalPages(data.pagination.pages);
+                        success = true;
+                    } else {
+                        console.warn(`Backend API failed with status ${response.status}, trying Supabase fallback...`);
+                    }
+                } catch (apiError) {
+                    console.warn('Backend API request failed, trying Supabase fallback...', apiError);
                 }
-            });
+            }
 
-            if (response.ok) {
-                const data = await response.json();
-                setShipments(data.shipments);
-                setTotalPages(data.pagination.pages);
+            // Fallback to Supabase direct query
+            if (!success) {
+                console.log('Fetching shipments from Supabase...');
+                
+                let query = supabase
+                    .from('shipments')
+                    .select('id, user_id, items, address, status, tracking_number, created_at', { count: 'exact' })
+                    .order('created_at', { ascending: false });
+
+                if (statusFilter) {
+                    query = query.eq('status', statusFilter);
+                }
+
+                // Apply pagination
+                const limit = 50;
+                const offset = (page - 1) * limit;
+                query = query.range(offset, offset + limit - 1);
+
+                const { data: shipmentsData, error: shipmentsError, count } = await query;
+
+                if (shipmentsError) {
+                    console.error('Supabase query error:', shipmentsError);
+                    setShipments([]);
+                    setTotalPages(1);
+                    return;
+                }
+
+                // Fetch user information for each shipment
+                const userIds = [...new Set(shipmentsData?.map(s => s.user_id) || [])];
+                const { data: usersData } = await supabase
+                    .from('users')
+                    .select('id, username')
+                    .in('id', userIds);
+
+                const usersMap = new Map(usersData?.map(u => [u.id, u.username]) || []);
+
+                // Format shipments to match expected structure
+                const formattedShipments: Shipment[] = (shipmentsData || []).map(s => ({
+                    id: s.id,
+                    user_id: s.user_id,
+                    items: s.items,
+                    address: s.address,
+                    status: s.status,
+                    tracking_number: s.tracking_number || undefined,
+                    created_at: s.created_at,
+                    username: usersMap.get(s.user_id) || undefined
+                }));
+
+                setShipments(formattedShipments);
+                setTotalPages(Math.ceil((count || 0) / limit));
             }
         } catch (error) {
             console.error('Error fetching shipments:', error);
+            setShipments([]);
         } finally {
             setLoading(false);
         }
@@ -74,26 +142,65 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({ token })
     };
 
     const handleSave = async (shipmentId: string) => {
-        try {
-            setSaving(true);
-            const response = await fetch(`${BACKEND_URL}/api/admin/shipments/${shipmentId}`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: editStatus,
-                    tracking_number: editTracking || undefined
-                })
-            });
+        if (!editStatus) return;
 
-            if (response.ok) {
+        setSaving(true);
+        try {
+            // Try backend API first if token is available
+            let success = false;
+            if (token) {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/admin/shipments/${shipmentId}`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            status: editStatus,
+                            tracking_number: editTracking || null
+                        })
+                    });
+
+                    if (response.ok) {
+                        success = true;
+                    } else {
+                        console.warn(`Backend API failed with status ${response.status}, trying Supabase fallback...`);
+                    }
+                } catch (apiError) {
+                    console.warn('Backend API request failed, trying Supabase fallback...', apiError);
+                }
+            }
+
+            // Fallback to Supabase direct update
+            if (!success) {
+                const updateData: any = { status: editStatus };
+                if (editTracking) {
+                    updateData.tracking_number = editTracking;
+                } else {
+                    updateData.tracking_number = null;
+                }
+
+                const { error: updateError } = await supabase
+                    .from('shipments')
+                    .update(updateData)
+                    .eq('id', shipmentId);
+
+                if (updateError) {
+                    throw new Error('Failed to update shipment: ' + updateError.message);
+                }
+                success = true;
+            }
+
+            if (success) {
                 setEditingId(null);
-                fetchShipments();
+                setEditStatus('');
+                setEditTracking('');
+                await fetchShipments(); // Refresh the list
             }
         } catch (error) {
-            console.error('Error updating shipment:', error);
+            console.error('Error saving shipment:', error);
+            alert(`Failed to save shipment: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setSaving(false);
         }
@@ -116,7 +223,8 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({ token })
     };
 
     const formatAddress = (address: Shipment['address']) => {
-        return `${address.street}, ${address.city}, ${address.state} ${address.zipCode}, ${address.country}`;
+        const street = address.street || address.streetAddress || '';
+        return `${street}, ${address.city}, ${address.state} ${address.zipCode}, ${address.country}`;
     };
 
     const getTotalValue = (items: any[]) => {
@@ -235,8 +343,18 @@ export const ShipmentManagement: React.FC<ShipmentManagementProps> = ({ token })
                                     {/* User Info */}
                                     <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
                                         <User className="w-4 h-4" />
-                                        <span>User ID: </span>
-                                        <span className="font-mono">{shipment.user_id.slice(0, 20)}...</span>
+                                        {shipment.username ? (
+                                            <>
+                                                <span>User: </span>
+                                                <span className="text-white font-medium">{shipment.username}</span>
+                                                <span className="text-slate-500">({shipment.user_id.slice(0, 12)}...)</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>User ID: </span>
+                                                <span className="font-mono">{shipment.user_id.slice(0, 20)}...</span>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
 

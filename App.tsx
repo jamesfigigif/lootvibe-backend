@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ClerkProvider, SignedIn, SignedOut, UserButton, useUser, SignInButton, SignUpButton, useClerk } from '@clerk/clerk-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ClerkProvider, SignedIn, SignedOut, UserButton, useUser, SignInButton, SignUpButton, useClerk, useAuth } from '@clerk/clerk-react';
 import { Navbar } from './components/Navbar';
 import { OpeningStage } from './components/OpeningStage';
 import { StatsHeader } from './components/StatsHeader';
@@ -24,10 +24,13 @@ import { generateCustomBox, generateBoxImage } from './services/geminiService';
 import { getUser, addTransaction, updateUserState, markFreeBoxClaimed } from './services/walletService';
 import { createOrder } from './services/orderService';
 import { createShipment } from './services/shippingService';
+import { supabase } from './services/supabaseClient';
+import { createNotification } from './services/notificationService';
 import { X, Loader2, Sparkles, RefreshCw, DollarSign, Package, Filter, Search, Bitcoin, CreditCard, ChevronRight, Paintbrush, ArrowRight, Check, Shield, Info, Gift, Users, Skull, Swords, Truck, Pencil, Trophy, Gamepad2 } from 'lucide-react';
 
 export default function App() {
     const { user: clerkUser, isSignedIn, isLoaded } = useUser();
+    const { getToken } = useAuth();
     const [view, setView] = useState<ViewState>({ page: 'HOME' });
     const [user, setUser] = useState<User | null>(null);
     const [selectedBox, setSelectedBox] = useState<LootBox | null>(null);
@@ -36,6 +39,72 @@ export default function App() {
     const [battles, setBattles] = useState<Battle[]>(MOCK_BATTLES);
     const [activeBattle, setActiveBattle] = useState<Battle | null>(null);
     const [battlePlayerCount, setBattlePlayerCount] = useState<2 | 4 | 6>(2); // 1v1 (2), 2v2 (4), 3v3 (6)
+
+    // Fetch battles from database
+    useEffect(() => {
+        const fetchBattles = async () => {
+            try {
+                // Get current time minus 10 minutes (forfeited battles stay visible for 10 min)
+                const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+
+                // Fetch WAITING and ACTIVE battles
+                const { data: activeBattles, error: activeError } = await supabase
+                    .from('battles')
+                    .select('*')
+                    .in('status', ['WAITING', 'ACTIVE'])
+                    .order('created_at', { ascending: false })
+                    .limit(50);
+
+                // Fetch recent FINISHED battles (within last 10 minutes)
+                const { data: finishedBattles, error: finishedError } = await supabase
+                    .from('battles')
+                    .select('*')
+                    .eq('status', 'FINISHED')
+                    .gte('created_at', tenMinutesAgo)
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+
+                if (activeError || finishedError) {
+                    console.error('Error fetching battles:', activeError || finishedError);
+                    return;
+                }
+
+                // Combine and transform battles
+                const allBattles = [...(activeBattles || []), ...(finishedBattles || [])];
+                
+                if (allBattles.length > 0) {
+                    // Transform database battles to Battle type
+                    const transformedBattles: Battle[] = allBattles.map((b: any) => ({
+                        id: b.id,
+                        boxId: b.box_id,
+                        price: parseFloat(b.price),
+                        playerCount: b.player_count as 2 | 4 | 6,
+                        roundCount: b.round_count,
+                        mode: b.mode || 'STANDARD',
+                        status: b.status as 'WAITING' | 'ACTIVE' | 'FINISHED',
+                        players: typeof b.players === 'string' ? JSON.parse(b.players) : b.players
+                    }));
+
+                    // Sort by created_at descending
+                    transformedBattles.sort((a, b) => {
+                        const aTime = allBattles.find(db => db.id === a.id)?.created_at || '';
+                        const bTime = allBattles.find(db => db.id === b.id)?.created_at || '';
+                        return bTime.localeCompare(aTime);
+                    });
+
+                    setBattles(transformedBattles);
+                }
+            } catch (error) {
+                console.error('Error fetching battles:', error);
+            }
+        };
+
+        fetchBattles();
+        
+        // Refresh battles every 5 seconds
+        const interval = setInterval(fetchBattles, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     // Opening State
     const [isOpening, setIsOpening] = useState(false);
@@ -61,6 +130,7 @@ export default function App() {
     // AI Box
     const [isReskinning, setIsReskinning] = useState(false);
     const [boxes, setBoxes] = useState<LootBox[]>(INITIAL_BOXES);
+    const [boxesLoading, setBoxesLoading] = useState(true);
 
     // Deposit State
     const [selectedCrypto, setSelectedCrypto] = useState<'BTC' | 'ETH'>('BTC');
@@ -69,6 +139,7 @@ export default function App() {
     // Profile Edit State
     const [isEditingName, setIsEditingName] = useState(false);
     const [newUsername, setNewUsername] = useState('');
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
     // Balance Animation State
     const [balanceIncrease, setBalanceIncrease] = useState<number | null>(null);
@@ -80,6 +151,103 @@ export default function App() {
     useEffect(() => {
         window.scrollTo(0, 0);
     }, [view.page, selectedBox]);
+
+    // Update page title based on current view
+    useEffect(() => {
+        const baseTitle = 'LootVibe';
+        let pageTitle = baseTitle;
+
+        switch (view.page) {
+            case 'HOME':
+                pageTitle = 'Boxes | LootVibe';
+                break;
+            case 'BOX_DETAIL':
+                pageTitle = selectedBox ? `${selectedBox.name} | LootVibe` : 'Box Details | LootVibe';
+                break;
+            case 'OPENING':
+                pageTitle = selectedBox ? `Opening ${selectedBox.name} | LootVibe` : 'Opening Box | LootVibe';
+                break;
+            case 'PROFILE':
+                pageTitle = user ? `${user.username}'s Profile | LootVibe` : 'Profile | LootVibe';
+                break;
+            case 'BATTLES':
+                pageTitle = 'PVP Arena | LootVibe';
+                break;
+            case 'BATTLE_ARENA':
+                pageTitle = activeBattle ? `Battle Arena | LootVibe` : 'Battle Arena | LootVibe';
+                break;
+            case 'RACES':
+                pageTitle = 'Races | LootVibe';
+                break;
+            case 'AFFILIATES':
+                pageTitle = 'Affiliate Program | LootVibe';
+                break;
+            case 'ADMIN':
+                pageTitle = 'Admin Dashboard | LootVibe';
+                break;
+            default:
+                pageTitle = baseTitle;
+        }
+
+        document.title = pageTitle;
+    }, [view.page, selectedBox, user, activeBattle]);
+
+    // Fetch boxes from database on mount
+    useEffect(() => {
+        const fetchBoxes = async () => {
+            try {
+                setBoxesLoading(true);
+                // Try with 'enabled' field first
+                let { data, error } = await supabase
+                    .from('boxes')
+                    .select('*')
+                    .eq('enabled', true)
+                    .order('created_at', { ascending: false });
+
+                if (error) {
+                    // Try with 'active' field instead of 'enabled'
+                    const retry = await supabase
+                        .from('boxes')
+                        .select('*')
+                        .eq('active', true)
+                        .order('created_at', { ascending: false });
+
+                    if (retry.error) {
+                        console.error('Error fetching boxes:', retry.error);
+                        // Keep INITIAL_BOXES as fallback
+                        setBoxesLoading(false);
+                        return;
+                    }
+
+                    data = retry.data;
+                }
+
+                if (data && data.length > 0) {
+                    // Normalize box data - handle both 'image'/'image_url' fields
+                    const normalizedBoxes = data.map((box: any) => ({
+                        id: box.id,
+                        name: box.name,
+                        description: box.description || '',
+                        category: box.category,
+                        price: parseFloat(box.price),
+                        sale_price: box.sale_price ? parseFloat(box.sale_price) : undefined,
+                        image: box.image || box.image_url || '',
+                        color: box.color,
+                        tags: box.tags || [],
+                        items: box.items || []
+                    }));
+                    setBoxes(normalizedBoxes);
+                }
+            } catch (error) {
+                console.error('Error fetching boxes:', error);
+                // Keep INITIAL_BOXES as fallback
+            } finally {
+                setBoxesLoading(false);
+            }
+        };
+
+        fetchBoxes();
+    }, []);
 
     // Sync user balance
     useEffect(() => {
@@ -127,21 +295,42 @@ export default function App() {
 
     // Initialize user from Clerk
     useEffect(() => {
+        if (!isLoaded) return; // Wait for Clerk to load
+        
         const initUser = async () => {
-            if (isLoaded && isSignedIn && clerkUser && !user) {
-                await confirmLogin();
-            } else if (isLoaded && !isSignedIn) {
-                setUser(null);
+            if (isSignedIn && clerkUser) {
+                // Always re-initialize if Clerk says user is signed in but app user is missing or different
+                if (!user || user.id !== clerkUser.id) {
+                    console.log('🔄 Initializing user from Clerk:', clerkUser.id);
+                    try {
+                        await confirmLogin();
+                    } catch (error) {
+                        console.error('❌ Failed to initialize user:', error);
+                    }
+                }
+            } else if (!isSignedIn) {
+                // Clear user if not signed in
+                if (user) {
+                    console.log('🔓 User signed out, clearing user state');
+                    setUser(null);
+                }
             }
         };
+        
         initUser();
-    }, [isLoaded, isSignedIn, clerkUser?.id]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded, isSignedIn, clerkUser?.id]); // Only depend on Clerk state, not user state
 
     // --- Handlers ---
 
     const clerk = useClerk();
 
     const handleLogin = (fromWelcomeSpin = false) => {
+        // Don't open sign-in if user is already signed in
+        if (isSignedIn) {
+            console.log('User is already signed in, skipping login modal');
+            return;
+        }
         setIsWelcomeSpinPending(fromWelcomeSpin);
         clerk.openSignIn();
     };
@@ -223,7 +412,10 @@ export default function App() {
 
     const handleOpenBox = async () => {
         if (!selectedBox || !user) {
-            if (!user) handleLogin(false);
+            // Only trigger login if user is not signed in with Clerk
+            if (!user && !isSignedIn) {
+                handleLogin(false);
+            }
             return;
         }
 
@@ -244,9 +436,47 @@ export default function App() {
             // Add 1.5 second delay for suspense
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // 1. Generate Outcome (Provably Fair)
-            const result = await generateOutcome(selectedBox.items, user.clientSeed, user.nonce);
-            console.log('🎲 Generated outcome:', result.item.name, '| Value:', result.item.value, '| Random:', result.randomValue);
+            // SECURITY: Use Supabase Edge Function to generate outcome server-side
+            // This prevents client-side manipulation (unlike the old client-side generateOutcome)
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            if (!anonKey) {
+                throw new Error('VITE_SUPABASE_ANON_KEY is missing! Edge Function will fail.');
+            }
+
+            const authHeader = `Bearer ${anonKey}`;
+            console.log(`🔐 Secure Box Opening - Using Edge Function for user: ${user.id}`);
+
+            // Call secure edge function (similar to battle-spin)
+            const { data, error } = await supabase.functions.invoke('box-open', {
+                headers: {
+                    Authorization: authHeader
+                },
+                body: {
+                    boxId: selectedBox.id,
+                    userId: user.id,
+                    clientSeed: user.clientSeed,
+                    nonce: user.nonce
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error || 'Failed to generate outcome');
+
+            const outcome = data.outcome;
+            // Outcome generated successfully
+
+            // Format result to match expected structure
+            const result = {
+                item: outcome.item,
+                serverSeed: outcome.serverSeed,
+                serverSeedHash: outcome.serverSeedHash,
+                nonce: outcome.nonce,
+                randomValue: outcome.randomValue,
+                block: {
+                    height: 840000 + Math.floor(Math.random() * 1000),
+                    hash: "0000000000000000000" + outcome.serverSeedHash.substring(0, 20)
+                }
+            };
 
             // 2. Generate the reel ONCE here (before component mounts)
             const WINNER_INDEX = 60;
@@ -258,7 +488,6 @@ export default function App() {
                 if (i === WINNER_INDEX) {
                     // Place the actual winner at index 60
                     reelItems.push({ ...result.item, id: `winner - ${result.item.id} ` });
-                    console.log('🎯 PRE-GENERATED: Winner at index', WINNER_INDEX, ':', result.item.name);
                 } else if (i === WINNER_INDEX + 1 || i === WINNER_INDEX - 1) {
                     // Teaser items next to winner
                     if (Math.random() > 0.5 && highTierItems.length > 0) {
@@ -275,44 +504,73 @@ export default function App() {
                 }
             }
 
-            // 3. Create Order & Deduct Funds
-            await createOrder(user.id, selectedBox, [result.item], user.username, user.avatar);
+            // Note: Balance deduction, transaction creation, inventory addition, and box_openings record
+            // are all handled by the edge function for security. We don't need createOrder anymore.
 
-            // 4. Update Local User State
-            await updateUserState(user.id, { nonce: user.nonce + 1 });
+            // 3. Update Stats (totalWagered = count of boxes, totalProfit = item values)
+            const newTotalWagered = (user.totalWagered || 0) + 1; // Increment box count
+            const newTotalProfit = (user.totalProfit || 0) + outcome.itemValue; // Add item value
+
+            // 4. Update Local User State with stats and new balance
+            // Note: nonce is already incremented by edge function, don't overwrite it
+            await updateUserState(user.id, {
+                totalWagered: newTotalWagered,
+                totalProfit: newTotalProfit
+            });
             const updatedUser = await getUser(user.id);
             setUser(updatedUser);
 
-            // 5. Set result with pre-generated reel
-            setRollResult({ ...result, preGeneratedReel: reelItems });
+            // 5. Set result with pre-generated reel and openingId for tracking
+            setRollResult({
+                ...result,
+                preGeneratedReel: reelItems,
+                openingId: outcome.openingId // Store openingId for exchange tracking
+            });
 
         } catch (error) {
-            console.error("Open Box Error:", error);
-            alert("Failed to open box. Please try again.");
+            console.error("❌ Open Box Error:", error);
+            alert(`Failed to open box: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
             setIsOpening(false);
             setView({ page: 'BOX_DETAIL' });
         }
     };
 
     const handleDemoOpen = async () => {
-        if (!selectedBox) return;
+        console.log('🎮 handleDemoOpen called, selectedBox:', selectedBox);
+        console.log('🎮 Current view:', view);
+        console.log('🎮 Current isOpening:', isOpening);
+
+        if (!selectedBox) {
+            console.error('❌ No box selected for demo');
+            alert('Please select a box first');
+            return;
+        }
+
+        if (!selectedBox.items || selectedBox.items.length === 0) {
+            console.error('❌ Box has no items:', selectedBox);
+            console.error('❌ Box items:', selectedBox.items);
+            alert('This box has no items available');
+            return;
+        }
 
         try {
-            // 1. Immediate Feedback
-            setIsOpening(true);
-            setIsDemoMode(true);
-            setView({ page: 'OPENING' });
+            console.log('🎮 Starting demo open for box:', selectedBox.name, 'with', selectedBox.items.length, 'items');
+            console.log('🎮 First item sample:', selectedBox.items[0]);
 
-            // 2. Generate outcome (no balance deduction)
+            // 1. Generate outcome (no balance deduction)
             const demoSeed = 'demo-seed-' + Date.now();
+            console.log('🎮 Generating outcome with seed:', demoSeed);
+
             const result = await generateOutcome(selectedBox.items, demoSeed, 0);
             console.log('🎮 DEMO: Generated outcome:', result.item.name, '| Value:', result.item.value);
+            console.log('🎮 DEMO: Result object:', result);
 
-            // 3. Generate the reel
+            // 2. Generate the reel
             const WINNER_INDEX = 60;
             const totalItems = WINNER_INDEX + 10;
             const reelItems: LootItem[] = [];
             const highTierItems = selectedBox.items.filter(i => i.rarity === 'LEGENDARY' || i.rarity === 'EPIC');
+            console.log('🎮 High tier items count:', highTierItems.length);
 
             for (let i = 0; i < totalItems; i++) {
                 if (i === WINNER_INDEX) {
@@ -331,15 +589,27 @@ export default function App() {
                 }
             }
 
-            // 4. Set result with pre-generated reel (no balance/nonce update)
-            // Small delay to ensure the view transition has happened before setting result (optional but safer)
-            setTimeout(() => {
-                setRollResult({ ...result, preGeneratedReel: reelItems });
-            }, 100);
+            console.log('🎮 Generated reel with', reelItems.length, 'items');
+            console.log('🎮 Winner at index', WINNER_INDEX, ':', reelItems[WINNER_INDEX]?.name);
+
+            // 3. Set result with pre-generated reel BEFORE changing view
+            // This ensures the OpeningStage component receives rollResult immediately
+            const rollResultData = { ...result, preGeneratedReel: reelItems };
+            console.log('🎮 Setting rollResult:', rollResultData);
+            setRollResult(rollResultData);
+
+            // 4. Set opening state and change view
+            console.log('🎮 Setting isOpening to true and changing view to OPENING');
+            setIsOpening(true);
+            setIsDemoMode(true);
+            setView({ page: 'OPENING' });
+
+            console.log('🎮 Demo open complete!');
 
         } catch (error) {
-            console.error("Demo Open Error:", error);
-            alert("Failed to run demo. Please try again.");
+            console.error("❌ Demo Open Error:", error);
+            console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+            alert(`Failed to run demo: ${error instanceof Error ? error.message : 'Unknown error'}`);
             setIsOpening(false);
             setView({ page: 'BOX_DETAIL' });
             setIsDemoMode(false);
@@ -362,63 +632,116 @@ export default function App() {
     const handleSellItem = React.useCallback(async () => {
         if (!user || !rollResult) return;
         try {
-            console.log('💰 Selling item:', rollResult.item.name, 'for $', rollResult.item.value);
+            // SECURITY: Use edge function to exchange item (prevents manipulation)
+            // Get Clerk JWT token for authentication
+            const clerkToken = await getToken();
+            if (!clerkToken) {
+                throw new Error('Not authenticated with Clerk');
+            }
+
+            // Get anon key for Supabase gateway (required)
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            if (!anonKey) {
+                throw new Error('VITE_SUPABASE_ANON_KEY is missing!');
+            }
+
+            // Call secure edge function
+            // Send anon key in Authorization (for Supabase gateway)
+            // Send Clerk JWT in custom header (for function to verify)
+            const { data, error } = await supabase.functions.invoke('item-exchange', {
+                headers: {
+                    Authorization: `Bearer ${anonKey}`,
+                    'X-Clerk-Token': clerkToken // Custom header for Clerk JWT
+                },
+                body: {
+                    openingId: (rollResult as any).openingId
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error || 'Failed to exchange item');
 
             // Trigger balance animation
-            setBalanceIncrease(rollResult.item.value);
+            setBalanceIncrease(data.itemValue);
 
             // Close modal immediately
             resetOpenState();
 
-            // Add transaction and update balance
-            await addTransaction(user.id, 'WIN', rollResult.item.value, `Sold item: ${rollResult.item.name} `);
+            // Update user state
             const updatedUser = await getUser(user.id);
             console.log('✅ Balance updated:', updatedUser.balance);
             setUser(updatedUser);
         } catch (error) {
-            console.error('❌ Error selling item:', error);
-            alert('Failed to sell item. Please try again.');
+            console.error('❌ Error exchanging item:', error);
+            alert(`Failed to exchange item: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
         }
     }, [user, rollResult, resetOpenState]);
 
     const handleKeepItem = React.useCallback(async () => {
         if (!user || !rollResult) return;
         try {
-            console.log('🎒 Adding item to inventory:', rollResult.item.name);
-            const updatedInventory = [...user.inventory, rollResult.item];
-            console.log('📦 Updated inventory:', updatedInventory.length, 'items');
-            await updateUserState(user.id, { inventory: updatedInventory });
+            // NOTE: Item is already added to inventory by the box-open edge function
+            // This is just a UI action to close the modal and refresh the user state
+
+            // Create notification when user clicks "Add to Inventory"
+            if (rollResult.item && selectedBox) {
+                await createNotification(
+                    user.id,
+                    'INVENTORY_ADDED',
+                    'Item Added to Inventory',
+                    `${rollResult.item.name} has been added to your inventory!`,
+                    {
+                        item_name: rollResult.item.name,
+                        item_image: rollResult.item.image,
+                        item_value: rollResult.item.value,
+                        box_id: selectedBox.id,
+                        box_name: selectedBox.name
+                    }
+                );
+            }
+
+            // Refresh user state to get latest inventory
             const updatedUser = await getUser(user.id);
-            console.log('✅ User inventory after update:', updatedUser.inventory.length, 'items');
             setUser(updatedUser);
             resetOpenState();
         } catch (error) {
-            console.error('❌ Error adding item to inventory:', error);
-            alert('Failed to add item to inventory. Please try again.');
+            console.error('❌ Error refreshing inventory:', error);
+            alert('Failed to refresh inventory. Please try again.');
         }
-    }, [user, rollResult, resetOpenState]);
+    }, [user, rollResult, resetOpenState, selectedBox]);
 
     const handleShipItems = (items: LootItem[]) => {
-        setSelectedItemsToShip(items);
+        // Filter out items that are already being processed
+        const availableItems = items.filter(item => !item.shippingStatus);
+        if (availableItems.length === 0) {
+            alert('No items available to ship. All selected items are already being processed.');
+            return;
+        }
+        setSelectedItemsToShip(availableItems);
         setShowShipping(true);
     };
 
     const handleShipmentSubmit = async (address: ShippingAddress) => {
         if (!user) return;
-        await createShipment(user.id, selectedItemsToShip, address);
-        const updatedUser = await getUser(user.id);
-        setUser(updatedUser);
-        setShowShipping(false);
-        setSelectedItemsToShip([]);
+        try {
+            await createShipment(user.id, selectedItemsToShip, address);
+            const updatedUser = await getUser(user.id);
+            setUser(updatedUser);
+            setShowShipping(false);
+            setSelectedItemsToShip([]);
+        } catch (error: any) {
+            console.error('Shipping error:', error);
+            alert(error.message || 'Failed to create shipment. Please try again.');
+        }
     };
 
     // --- Battle Handlers ---
     const initiateCreateBattle = () => {
-        if (!user) { handleLogin(false); return; }
+        if (!user && !isSignedIn) { handleLogin(false); return; }
         setShowCreateBattle(true);
     };
 
-    const finalizeCreateBattle = (box: LootBox) => {
+    const finalizeCreateBattle = async (box: LootBox) => {
         if (!user) return;
 
         const cost = box.salePrice || box.price;
@@ -429,67 +752,264 @@ export default function App() {
             return;
         }
 
-        setUser({ ...user, balance: user.balance - cost });
+        try {
+            // Deduct balance from database
+            await addTransaction(user.id, 'BET', cost, `Battle creation: ${battlePlayerCount === 2 ? '1v1' : battlePlayerCount === 4 ? '2v2' : '3v3'}`);
 
-        const playersArray = new Array(battlePlayerCount).fill(null);
-        playersArray[0] = user; // Creator is always slot 0
+            // Refresh user from database
+            const updatedUser = await getUser(user.id);
+            setUser(updatedUser);
 
-        const newBattle: Battle = {
-            id: `battle_${Date.now()} `,
-            boxId: box.id,
-            price: cost,
-            playerCount: battlePlayerCount,
-            players: playersArray,
-            status: 'WAITING',
-            roundCount: 1,
-        };
+            const playersArray = new Array(battlePlayerCount).fill(null);
+            playersArray[0] = updatedUser; // Creator is always slot 0
 
-        setBattles([newBattle, ...battles]);
-        setShowCreateBattle(false);
-        setActiveBattle(newBattle);
-        setView({ page: 'BATTLE_ARENA' });
+            const newBattle: Battle = {
+                id: `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                boxId: box.id,
+                price: cost,
+                playerCount: battlePlayerCount,
+                players: playersArray,
+                status: 'WAITING',
+                roundCount: 1,
+            };
+
+            // Save battle to database
+            const { error: dbError } = await supabase
+                .from('battles')
+                .insert({
+                    id: newBattle.id,
+                    box_id: newBattle.boxId,
+                    price: newBattle.price,
+                    player_count: newBattle.playerCount,
+                    round_count: newBattle.roundCount,
+                    mode: 'STANDARD',
+                    status: newBattle.status,
+                    players: JSON.stringify(newBattle.players)
+                });
+
+            if (dbError) {
+                console.error('Error saving battle to database:', dbError);
+                // Continue anyway - battle will work in memory
+            }
+
+            setBattles([newBattle, ...battles]);
+            setShowCreateBattle(false);
+            setActiveBattle(newBattle);
+            setView({ page: 'BATTLE_ARENA' });
+        } catch (error) {
+            console.error('❌ Error creating battle:', error);
+            alert('Failed to create battle. Please try again.');
+        }
     };
 
-    // Simulate opponent joining
+    // Auto-fill with bots after waiting period
+    const botFillTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const botFillFallbackRef = useRef<NodeJS.Timeout | null>(null);
+
     useEffect(() => {
-        if (view.page === 'BATTLE_ARENA' && activeBattle && activeBattle.status === 'WAITING' && activeBattle.players[0]?.id === user?.id) {
-            const timer = setTimeout(() => {
-                // Bot logic: fill one empty slot
-                const botUser: User = {
-                    id: `bot_${Date.now()} `,
-                    username: `Bot_${Math.floor(Math.random() * 100)} `,
-                    balance: 10000,
-                    inventory: [],
-                    shipments: [],
-                    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=Bot_${Math.random()}`,
-                    clientSeed: 'bot-seed',
-                    nonce: 0,
+        // Clear any existing timers
+        if (botFillTimerRef.current) {
+            clearTimeout(botFillTimerRef.current);
+            botFillTimerRef.current = null;
+        }
+        if (botFillFallbackRef.current) {
+            clearTimeout(botFillFallbackRef.current);
+            botFillFallbackRef.current = null;
+        }
+
+        if (view.page === 'BATTLE_ARENA' && activeBattle && activeBattle.status === 'WAITING' && user) {
+            // Check if there are empty slots
+            const emptySlotsCount = activeBattle.players.filter(p => p === null).length;
+            const isCreator = activeBattle.players[0]?.id === user.id;
+
+            console.log('🔍 Bot fill check:', {
+                page: view.page,
+                battleId: activeBattle.id,
+                status: activeBattle.status,
+                emptySlots: emptySlotsCount,
+                isCreator,
+                userId: user.id,
+                firstPlayerId: activeBattle.players[0]?.id
+            });
+
+            // Start timer if there are empty slots
+            // For created battles: only creator starts timer
+            // For joined battles: any player can trigger bot fill if battle is waiting
+            if (emptySlotsCount > 0) {
+                // If user is not creator, they might have joined - still allow bot fill after wait
+                if (!isCreator) {
+                    console.log('⚠️ User is not creator, but battle is waiting - will fill bots after wait');
+                }
+                // Wait 3-8 seconds (reduced for faster testing, can be 5-15s later)
+                // Minimum 3 seconds, maximum 8 seconds
+                const waitTime = 3000 + Math.random() * 5000; // 3-8 seconds
+                console.log(`🤖 Bot fill timer started for battle ${activeBattle.id}: ${Math.round(waitTime / 1000)}s wait, ${emptySlotsCount} empty slots`);
+
+                // Helper function to fill bots
+                const fillBots = (battleToUpdate: Battle) => {
+                    const newPlayers = [...battleToUpdate.players];
+                    const emptySlots: number[] = [];
+
+                    newPlayers.forEach((p, index) => {
+                        if (p === null) {
+                            emptySlots.push(index);
+                        }
+                    });
+
+                    if (emptySlots.length > 0) {
+                        console.log(`🤖 Filling ${emptySlots.length} slots with bots`);
+
+                        const realisticUsernames = [
+                            'AlexM', 'JordanK', 'SamT', 'ChrisR', 'TaylorW',
+                            'MorganL', 'CaseyJ', 'RileyB', 'AveryP', 'QuinnM',
+                            'DrewH', 'BlakeS', 'CameronN', 'DakotaF', 'EmeryC',
+                            'FinleyG', 'HarperD', 'HaydenV', 'JamieX', 'KendallB',
+                            'LoganM', 'MasonT', 'NoahR', 'OwenL', 'ParkerK',
+                            'ReeseJ', 'RowanH', 'SageP', 'SkylarN', 'TylerF',
+                            'ZaneC', 'AidenG', 'BrodyD', 'CarterV', 'DylanB',
+                            'EthanM', 'FinnT', 'GavinR', 'HunterL', 'IsaacK',
+                            'JaxonJ', 'KaiH', 'LiamP', 'MaxN', 'NolanF',
+                            'OscarC', 'PeytonG', 'QuinnD', 'RyanV', 'SawyerB'
+                        ];
+
+                        const shuffledUsernames = [...realisticUsernames].sort(() => Math.random() - 0.5);
+
+                        emptySlots.forEach((slotIndex, botIndex) => {
+                            const botId = `bot_${battleToUpdate.id}_${slotIndex}_${Date.now()}_${botIndex}`;
+                            newPlayers[slotIndex] = {
+                                id: botId,
+                                username: shuffledUsernames[botIndex] || `Player${botIndex + 1}`,
+                                balance: 10000,
+                                inventory: [],
+                                shipments: [],
+                                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${botId}`,
+                                clientSeed: botId,
+                                nonce: 0,
+                            };
+                        });
+
+                        return {
+                            ...battleToUpdate,
+                            players: newPlayers,
+                            status: 'ACTIVE' as const
+                        };
+                    }
+                    return battleToUpdate;
                 };
 
-                const newPlayers = [...activeBattle.players];
-                const emptyIndex = newPlayers.findIndex(p => p === null);
+                // Also set a maximum timeout as fallback (20 seconds max)
+                const maxWaitTime = 20000;
+                const fallbackTimer = setTimeout(() => {
+                    console.warn('⚠️ Fallback timer fired - forcing bot fill after 20s');
+                    if (botFillTimerRef.current) {
+                        clearTimeout(botFillTimerRef.current);
+                        botFillTimerRef.current = null;
+                    }
+                    // Force bot fill
+                    setBattles(prevBattles => {
+                        const currentBattle = prevBattles.find(b => b.id === activeBattle.id);
+                        if (currentBattle && currentBattle.status === 'WAITING') {
+                            // Fill with bots immediately
+                            const newPlayers = [...currentBattle.players];
+                            const emptySlots: number[] = [];
+                            newPlayers.forEach((p, index) => {
+                                if (p === null) emptySlots.push(index);
+                            });
 
-                if (emptyIndex !== -1) {
-                    newPlayers[emptyIndex] = botUser;
+                            if (emptySlots.length > 0) {
+                                const realisticUsernames = [
+                                    'AlexM', 'JordanK', 'SamT', 'ChrisR', 'TaylorW',
+                                    'MorganL', 'CaseyJ', 'RileyB', 'AveryP', 'QuinnM',
+                                    'DrewH', 'BlakeS', 'CameronN', 'DakotaF', 'EmeryC',
+                                    'FinleyG', 'HarperD', 'HaydenV', 'JamieX', 'KendallB',
+                                    'LoganM', 'MasonT', 'NoahR', 'OwenL', 'ParkerK',
+                                    'ReeseJ', 'RowanH', 'SageP', 'SkylarN', 'TylerF',
+                                    'ZaneC', 'AidenG', 'BrodyD', 'CarterV', 'DylanB',
+                                    'EthanM', 'FinnT', 'GavinR', 'HunterL', 'IsaacK',
+                                    'JaxonJ', 'KaiH', 'LiamP', 'MaxN', 'NolanF',
+                                    'OscarC', 'PeytonG', 'QuinnD', 'RyanV', 'SawyerB'
+                                ];
+                                const shuffledUsernames = [...realisticUsernames].sort(() => Math.random() - 0.5);
 
-                    const isNowFull = newPlayers.every(p => p !== null);
-                    const updatedBattle: Battle = {
-                        ...activeBattle,
-                        players: newPlayers,
-                        status: isNowFull ? 'ACTIVE' : 'WAITING'
-                    };
+                                emptySlots.forEach((slotIndex, botIndex) => {
+                                    const botId = `bot_${currentBattle.id}_${slotIndex}_${Date.now()}_${botIndex}`;
+                                    newPlayers[slotIndex] = {
+                                        id: botId,
+                                        username: shuffledUsernames[botIndex] || `Player${botIndex + 1}`,
+                                        balance: 10000,
+                                        inventory: [],
+                                        shipments: [],
+                                        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${botId}`,
+                                        clientSeed: botId,
+                                        nonce: 0,
+                                    };
+                                });
 
-                    setActiveBattle(updatedBattle);
-                    setBattles(prev => prev.map(b => b.id === updatedBattle.id ? updatedBattle : b));
-                }
+                                const updatedBattle: Battle = {
+                                    ...currentBattle,
+                                    players: newPlayers,
+                                    status: 'ACTIVE'
+                                };
 
-            }, 3500);
-            return () => clearTimeout(timer);
+                                console.log('🤖 Fallback: Battle activated with bots');
+                                setActiveBattle(updatedBattle);
+                                return prevBattles.map(b => b.id === updatedBattle.id ? updatedBattle : b);
+                            }
+                        }
+                        return prevBattles;
+                    });
+                }, maxWaitTime);
+
+                // Store fallback timer reference
+                botFillFallbackRef.current = fallbackTimer;
+
+                botFillTimerRef.current = setTimeout(() => {
+                    console.log('🤖 Bot fill timer fired! Checking battle state...');
+
+                    // Use setBattles callback to get latest state
+                    setBattles(prevBattles => {
+                        const currentBattle = prevBattles.find(b => b.id === activeBattle.id);
+                        if (!currentBattle) {
+                            console.log('🤖 Battle not found in battles array');
+                            return prevBattles;
+                        }
+
+                        if (currentBattle.status !== 'WAITING') {
+                            console.log(`🤖 Battle status is ${currentBattle.status}, skipping bot fill`);
+                            return prevBattles; // Battle already started
+                        }
+
+                        console.log('🤖 Battle is still waiting, proceeding with bot fill');
+                        const updated = fillBots(currentBattle);
+
+                        if (updated.status === 'ACTIVE') {
+                            console.log('🤖 Battle activated with bots:', updated.players.map(p => p?.username));
+                            setActiveBattle(updated);
+                            return prevBattles.map(b => b.id === updated.id ? updated : b);
+                        }
+
+                        return prevBattles;
+                    });
+
+                    botFillTimerRef.current = null;
+                }, waitTime);
+            }
         }
-    }, [view.page, activeBattle, user]);
 
-    const handleJoinBattle = (battleId: string) => {
-        if (!user) { handleLogin(false); return; }
+        return () => {
+            if (botFillTimerRef.current) {
+                clearTimeout(botFillTimerRef.current);
+                botFillTimerRef.current = null;
+            }
+            if (botFillFallbackRef.current) {
+                clearTimeout(botFillFallbackRef.current);
+                botFillFallbackRef.current = null;
+            }
+        };
+    }, [view.page, activeBattle?.id, activeBattle?.status, user?.id]); // Depend on status too
+
+    const handleJoinBattle = async (battleId: string) => {
+        if (!user && !isSignedIn) { handleLogin(false); return; }
 
         const target = battles.find(b => b.id === battleId);
         if (!target) return;
@@ -503,33 +1023,61 @@ export default function App() {
         const emptyIndex = target.players.findIndex(p => p === null);
         if (emptyIndex === -1) return;
 
-        const cost = target.price * target.roundCount;
+        // Each player pays the box price once to join (not per round)
+        const cost = target.price;
         if (user.balance < cost) {
             setShowDeposit(true);
             return;
         }
 
-        setUser({ ...user, balance: user.balance - cost });
+        try {
+            // Deduct balance from database
+            await addTransaction(user.id, 'BET', cost, `Battle entry: ${target.roundCount} round${target.roundCount > 1 ? 's' : ''} - ${target.playerCount === 2 ? '1v1' : target.playerCount === 4 ? '2v2' : '3v3'}`);
 
-        const updatedBattles = battles.map(b => {
-            if (b.id === battleId) {
-                const newPlayers = [...b.players];
-                newPlayers[emptyIndex] = user;
-                const isNowFull = newPlayers.every(p => p !== null);
-                return {
-                    ...b,
-                    players: newPlayers,
-                    status: isNowFull ? 'ACTIVE' : 'WAITING'
-                } as Battle;
+            // Refresh user from database to get updated balance
+            const updatedUser = await getUser(user.id);
+            setUser(updatedUser);
+
+            const updatedBattles = battles.map(b => {
+                if (b.id === battleId) {
+                    const newPlayers = [...b.players];
+                    newPlayers[emptyIndex] = updatedUser;
+                    const isNowFull = newPlayers.every(p => p !== null);
+                    return {
+                        ...b,
+                        players: newPlayers,
+                        status: isNowFull ? 'ACTIVE' : 'WAITING'
+                    } as Battle;
+                }
+                return b;
+            });
+
+            // Update battle in database
+            const updatedBattle = updatedBattles.find(b => b.id === battleId);
+            if (updatedBattle) {
+                const { error: dbError } = await supabase
+                    .from('battles')
+                    .update({
+                        players: JSON.stringify(updatedBattle.players),
+                        status: updatedBattle.status,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', battleId);
+
+                if (dbError) {
+                    console.error('Error updating battle in database:', dbError);
+                    // Continue anyway - battle will work in memory
+                }
             }
-            return b;
-        });
 
-        setBattles(updatedBattles);
-        const updatedBattle = updatedBattles.find(b => b.id === battleId);
-        if (updatedBattle) {
-            setActiveBattle(updatedBattle);
-            setView({ page: 'BATTLE_ARENA' });
+            setBattles(updatedBattles);
+            if (updatedBattle) {
+                setActiveBattle(updatedBattle);
+                setView({ page: 'BATTLE_ARENA' });
+            }
+        } catch (error) {
+            console.error('❌ Error joining battle:', error);
+            alert('Failed to join battle. Please try again.');
         }
     };
 
@@ -538,12 +1086,124 @@ export default function App() {
         setView({ page: 'BATTLE_ARENA' });
     };
 
-    const handleBattleClaim = (amount: number) => {
-        if (user) {
-            setUser({ ...user, balance: user.balance + amount });
+    const handleCreateRematch = (oldBattle: Battle) => {
+        if (!user) return;
+
+        // Find the opponent (non-user player)
+        const opponent = oldBattle.players.find(p => p?.id && p.id !== user.id);
+        if (!opponent) return;
+
+        // Create new battle with same settings
+        const box = INITIAL_BOXES.find(b => b.id === oldBattle.boxId);
+        if (!box) return;
+
+        const cost = box.salePrice || box.price;
+        const playersArray = new Array(oldBattle.playerCount).fill(null);
+        playersArray[0] = user;
+        playersArray[1] = opponent; // Place opponent in second slot
+
+        // For 1v1, activate immediately since both players are ready
+        // For 2v2/3v3, fill with bots immediately
+        let battleStatus: 'WAITING' | 'ACTIVE' = 'WAITING';
+        let finalPlayers = playersArray;
+
+        if (oldBattle.playerCount === 2) {
+            // 1v1 - both players ready, activate immediately
+            battleStatus = 'ACTIVE';
+        } else {
+            // 2v2 or 3v3 - fill remaining slots with bots immediately
+            const botNames = [
+                'AlexM', 'JordanK', 'SamT', 'ChrisR', 'TaylorW',
+                'MorganL', 'CaseyJ', 'RileyB', 'AveryP', 'QuinnM',
+                'DrewH', 'BlakeS', 'CameronN', 'DakotaF', 'EmeryC'
+            ];
+
+            for (let i = 2; i < oldBattle.playerCount; i++) {
+                if (!finalPlayers[i]) {
+                    const randomName = botNames[Math.floor(Math.random() * botNames.length)];
+                    finalPlayers[i] = {
+                        id: `bot_${Date.now()}_${i}_${Math.random().toString(36).substr(2, 9)}`,
+                        username: randomName,
+                        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${randomName}`,
+                        balance: 0
+                    };
+                }
+            }
+
+            // All slots filled, activate
+            battleStatus = 'ACTIVE';
         }
-        setView({ page: 'BATTLES' });
-        setActiveBattle(null);
+
+        const newBattle: Battle = {
+            id: `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            boxId: oldBattle.boxId,
+            price: cost,
+            playerCount: oldBattle.playerCount,
+            players: finalPlayers,
+            status: battleStatus,
+            roundCount: oldBattle.roundCount,
+            mode: oldBattle.mode,
+        };
+
+        console.log('🔄 Creating rematch battle:', newBattle.id, 'Status:', battleStatus);
+        setBattles([newBattle, ...battles]);
+
+        // Use setTimeout to ensure state updates are processed
+        setTimeout(() => {
+            setActiveBattle(newBattle);
+            setView({ page: 'BATTLE_ARENA' });
+            console.log('✅ Rematch battle activated and view set');
+        }, 100);
+    };
+
+    const handleBattleClaim = async (amount: number, items?: LootItem[]) => {
+        if (!user) return;
+
+        try {
+            const prizeChoice = items && items.length > 0 ? 'items' : 'cash';
+            console.log(`🏆 Claiming battle prize via Secure Edge Function: ${prizeChoice}`);
+
+            // Get Clerk session token for authentication
+            const clerkToken = await getToken();
+            console.log('🔑 Clerk Token Debug:', {
+                hasToken: !!clerkToken,
+                tokenStart: clerkToken ? clerkToken.substring(0, 30) + '...' : 'NULL',
+                tokenLength: clerkToken?.length
+            });
+
+            if (!clerkToken) {
+                throw new Error('Not authenticated with Clerk');
+            }
+
+            const { data, error } = await supabase.functions.invoke('battle-claim', {
+                headers: {
+                    Authorization: `Bearer ${clerkToken}`
+                },
+                body: {
+                    battleId: activeBattle?.id || 'unknown',
+                    prizeChoice,
+                    amount,
+                    items,
+                    userId: user.id
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error || 'Failed to claim prize');
+
+            console.log('✅ Prize claimed successfully via server');
+
+            // Refresh user data to show new balance/inventory
+            const updatedUser = await getUser(user.id);
+            setUser(updatedUser);
+
+            // Navigate back to battles
+            setView({ page: 'BATTLES' });
+            setActiveBattle(null);
+        } catch (error) {
+            console.error('❌ Error claiming battle prize:', error);
+            alert('Failed to claim prize. Please try again.');
+        }
     };
 
     const handleReskinBox = async () => {
@@ -571,6 +1231,11 @@ export default function App() {
         const matchesCategory = activeCategory === 'ALL' || box.category === activeCategory;
         const matchesSearch = box.name.toLowerCase().includes(searchQuery.toLowerCase());
         return matchesCategory && matchesSearch;
+    }).sort((a, b) => {
+        // Sort by price (cheapest to most expensive)
+        const priceA = a.salePrice || a.price || 0;
+        const priceB = b.salePrice || b.price || 0;
+        return priceA - priceB;
     });
 
     const handleBoxClick = (box: LootBox) => {
@@ -649,6 +1314,7 @@ export default function App() {
                         <RacePage />
                     ) : view.page === 'BATTLE_ARENA' && activeBattle ? (
                         <BattleArena
+                            key={activeBattle.id} // Force remount when battle ID changes (for rematches)
                             battle={activeBattle}
                             user={user}
                             onBack={() => {
@@ -656,6 +1322,7 @@ export default function App() {
                                 setView({ page: 'BATTLES' });
                             }}
                             onClaim={handleBattleClaim}
+                            onCreateRematch={handleCreateRematch}
                         />
                     ) : view.page === 'BATTLES' ? (
                         <BattleLobby
@@ -820,8 +1487,20 @@ export default function App() {
                                         </button>
 
                                         <button
-                                            onClick={handleDemoOpen}
-                                            className="w-full bg-[#131b2e] hover:bg-[#1c263d] text-slate-300 font-bold py-4 rounded-xl border border-white/10 transition-colors flex items-center justify-center gap-2"
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                console.log('🎮 TRY FOR FREE button clicked!', selectedBox);
+                                                console.log('🎮 Event:', e);
+                                                console.log('🎮 Calling handleDemoOpen...');
+                                                handleDemoOpen().catch(err => {
+                                                    console.error('❌ Unhandled error in handleDemoOpen:', err);
+                                                    alert('Error: ' + (err instanceof Error ? err.message : String(err)));
+                                                });
+                                            }}
+                                            className="relative z-20 w-full bg-[#131b2e] hover:bg-[#1c263d] active:bg-[#1a2336] text-slate-300 font-bold py-4 rounded-xl border border-white/10 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                            disabled={!selectedBox || (selectedBox.items && selectedBox.items.length === 0)}
                                         >
                                             <Gamepad2 className="w-5 h-5" /> TRY FOR FREE
                                         </button>
@@ -865,7 +1544,7 @@ export default function App() {
                                         </div>
 
                                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                            {selectedBox.items.sort((a, b) => b.value - a.value).map(item => (
+                                            {selectedBox.items.sort((a, b) => b.odds - a.odds).map(item => (
                                                 <div key={item.id} className={`
                                             group relative rounded-xl border bg-[#0b0f19] flex flex-col items-center text-center transition-all hover:bg-[#131b2e] hover:-translate-y-1 shadow-lg overflow-hidden
                                             ${RARITY_COLORS[item.rarity]}
@@ -873,7 +1552,7 @@ export default function App() {
                                                     <div className={`absolute top-0 inset-x-0 h-1 bg-gradient-to-r ${RARITY_GRADIENTS[item.rarity]} z-10`}></div>
                                                     <div className="absolute top-2 right-2 text-[10px] font-bold text-white bg-black/80 border border-white/10 px-2 py-1 rounded shadow-lg z-20">{item.odds}%</div>
 
-                                                    <div className="w-full h-48 p-4 flex items-center justify-center bg-gradient-to-b from-transparent to-black/20">
+                                                    <div className="w-full h-56 p-2 flex items-center justify-center bg-gradient-to-b from-transparent to-black/20 relative overflow-hidden">
                                                         <LazyImage
                                                             src={item.image}
                                                             alt={item.name}
@@ -881,9 +1560,9 @@ export default function App() {
                                                         />
                                                     </div>
 
-                                                    <div className="w-full relative z-10 p-3 bg-[#0b0f19] border-t border-white/5">
-                                                        <div className="text-sm font-bold leading-tight mb-1 line-clamp-2 text-slate-200 group-hover:text-white h-10 flex items-center justify-center">{item.name}</div>
-                                                        <div className="text-xs font-mono text-emerald-500">${item.value.toLocaleString()}</div>
+                                                    <div className="w-full relative z-10 p-3 bg-[#0b0f19] border-t border-white/5 min-h-[72px] flex flex-col justify-center">
+                                                        <div className="text-xs font-bold leading-snug mb-1.5 line-clamp-3 text-slate-200 group-hover:text-white px-1">{item.name}</div>
+                                                        <div className="text-xs font-mono text-emerald-500 mt-auto">${item.value.toLocaleString()}</div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -903,6 +1582,7 @@ export default function App() {
                             }}
                             onComplete={handleAnimationComplete}
                             isOpening={isOpening}
+                            isDemoMode={isDemoMode}
                             rollResult={rollResult}
                         />
                     ) : view.page === 'PROFILE' && user ? (
@@ -916,45 +1596,52 @@ export default function App() {
                                         </div>
 
                                         {isEditingName ? (
-                                            <div className="flex items-center gap-2 mb-2">
+                                            <div className="flex flex-col items-center gap-2 mb-2 w-full">
                                                 <input
                                                     type="text"
                                                     value={newUsername}
                                                     onChange={(e) => setNewUsername(e.target.value)}
-                                                    className="bg-[#0b0f19] border border-white/20 rounded px-2 py-1 text-white font-bold text-center w-40 focus:outline-none focus:border-purple-500"
+                                                    className="bg-[#0b0f19] border border-purple-500 rounded-lg px-4 py-2 text-white font-bold text-center w-full focus:outline-none focus:border-purple-400 shadow-lg shadow-purple-500/20"
+                                                    placeholder="Enter new username"
                                                     autoFocus
                                                 />
-                                                <button onClick={handleUpdateUsername} className="bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-400 p-1 rounded transition-colors">
-                                                    <Check className="w-4 h-4" />
-                                                </button>
-                                                <button onClick={() => setIsEditingName(false)} className="bg-red-500/20 hover:bg-red-500/40 text-red-400 p-1 rounded transition-colors">
-                                                    <X className="w-4 h-4" />
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    <button onClick={handleUpdateUsername} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                                        <Check className="w-4 h-4" /> Save
+                                                    </button>
+                                                    <button onClick={() => setIsEditingName(false)} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-bold transition-colors flex items-center gap-2">
+                                                        <X className="w-4 h-4" /> Cancel
+                                                    </button>
+                                                </div>
                                             </div>
                                         ) : (
-                                            <div className="flex items-center gap-2 mb-2 group">
-                                                <h2 className="text-2xl font-bold">{user.username}</h2>
-                                                <button
-                                                    onClick={() => {
-                                                        setNewUsername(user.username);
-                                                        setIsEditingName(true);
-                                                    }}
-                                                    className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-white transition-all"
-                                                >
-                                                    <Pencil className="w-4 h-4" />
-                                                </button>
+                                            <div className="flex flex-col items-center mb-2">
+                                                <div className="flex items-center gap-2 group mb-1">
+                                                    <h2 className="text-2xl font-bold">{user.username}</h2>
+                                                    <button
+                                                        onClick={() => {
+                                                            setNewUsername(user.username);
+                                                            setIsEditingName(true);
+                                                        }}
+                                                        className="bg-purple-500/20 hover:bg-purple-500/40 text-purple-400 p-2 rounded-lg transition-all border border-purple-500/30"
+                                                        title="Change username"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                                <p className="text-slate-400 text-sm">{clerkUser?.primaryEmailAddress?.emailAddress || 'No email'}</p>
                                             </div>
                                         )}
-                                        <p className="text-slate-500 text-sm mb-6">Member since 2024</p>
+                                        <p className="text-slate-500 text-xs mb-6">Member since 2024</p>
 
                                         <div className="grid grid-cols-2 gap-4 w-full mb-6">
                                             <div className="bg-[#0b0f19] p-3 rounded-xl border border-white/5">
-                                                <div className="text-xs text-slate-500 uppercase">Total Wagered</div>
-                                                <div className="font-mono font-bold text-white">$12,450</div>
+                                                <div className="text-xs text-slate-500 uppercase">Total Unboxed</div>
+                                                <div className="font-mono font-bold text-purple-400">{user.totalWagered?.toLocaleString() || '0'} Boxes</div>
                                             </div>
                                             <div className="bg-[#0b0f19] p-3 rounded-xl border border-white/5">
                                                 <div className="text-xs text-slate-500 uppercase">Total Profit</div>
-                                                <div className="font-mono font-bold text-emerald-400">+$2,100</div>
+                                                <div className="font-mono font-bold text-emerald-400">+${user.totalProfit?.toLocaleString() || '0'}</div>
                                             </div>
                                         </div>
                                     </div>
@@ -963,9 +1650,9 @@ export default function App() {
                                 <div className="w-full md:w-2/3">
                                     <div className="flex items-center justify-between mb-6">
                                         <h3 className="text-xl font-bold flex items-center gap-2"><Package /> Inventory</h3>
-                                        {user.inventory.length > 0 && (
+                                        {user.inventory.filter(item => !item.shippingStatus).length > 0 && (
                                             <button
-                                                onClick={() => handleShipItems(user.inventory)}
+                                                onClick={() => handleShipItems(user.inventory.filter(item => !item.shippingStatus))}
                                                 className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all"
                                             >
                                                 <Truck className="w-4 h-4" />
@@ -973,21 +1660,63 @@ export default function App() {
                                             </button>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                                        {user.inventory.map((item, i) => (
-                                            <div key={i} className={`p-4 rounded-xl border bg-[#131b2e] ${RARITY_COLORS[item.rarity]} group hover:-translate-y-1 transition-transform relative`}>
-                                                <button
-                                                    onClick={() => handleShipItems([item])}
-                                                    className="absolute top-2 right-2 bg-purple-600 hover:bg-purple-500 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                                    title="Ship this item"
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                        {user.inventory.map((item, i) => {
+                                            const isProcessing = item.shippingStatus === 'PROCESSING';
+                                            const rarityGradient = RARITY_GRADIENTS[item.rarity];
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    className={`relative group rounded-2xl overflow-hidden bg-gradient-to-br from-[#131b2e] to-[#0b0f19] border-2 ${RARITY_COLORS[item.rarity]} hover:scale-105 transition-all duration-300 ${isProcessing ? 'opacity-50 grayscale' : 'hover:shadow-2xl'}`}
+                                                    style={{
+                                                        boxShadow: isProcessing ? 'none' : `0 10px 40px -10px ${rarityGradient.split(' ')[0]}40`
+                                                    }}
                                                 >
-                                                    <Truck className="w-3 h-3" />
-                                                </button>
-                                                <img src={item.image} className="w-full aspect-square object-contain mb-2 group-hover:scale-105 transition-transform" />
-                                                <div className="text-sm font-bold truncate">{item.name}</div>
-                                                <div className="text-xs font-mono opacity-70">${item.value}</div>
-                                            </div>
-                                        ))}
+                                                    {/* Rarity Glow Effect */}
+                                                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{
+                                                        background: `radial-gradient(circle at 50% 0%, ${rarityGradient.split(' ')[0]}20, transparent 70%)`
+                                                    }}></div>
+
+                                                    {/* Ship Button */}
+                                                    {!isProcessing && (
+                                                        <button
+                                                            onClick={() => handleShipItems([item])}
+                                                            className="absolute top-3 right-3 bg-purple-600 hover:bg-purple-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 z-10 shadow-lg"
+                                                            title="Ship this item"
+                                                        >
+                                                            <Truck className="w-4 h-4" />
+                                                        </button>
+                                                    )}
+
+                                                    {/* Processing Badge */}
+                                                    {isProcessing && (
+                                                        <div className="absolute top-3 right-3 bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold z-10 shadow-lg">
+                                                            Processing
+                                                        </div>
+                                                    )}
+
+                                                    {/* Image Container */}
+                                                    <div className="relative p-6 bg-gradient-to-b from-transparent to-black/20">
+                                                        <LazyImage
+                                                            src={item.image}
+                                                            alt={item.name}
+                                                            className={`w-full aspect-square object-contain ${isProcessing ? '' : 'group-hover:scale-110'} transition-transform duration-500`}
+                                                        />
+                                                    </div>
+
+                                                    {/* Item Info */}
+                                                    <div className="p-4 bg-black/40 backdrop-blur-sm">
+                                                        <div className="text-sm font-bold text-white mb-1 truncate">{item.name}</div>
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="text-lg font-mono font-bold text-emerald-400">${item.value}</div>
+                                                            <div className={`text-[10px] font-bold px-2 py-0.5 rounded text-white ${RARITY_BG[item.rarity]}`}>
+                                                                {item.rarity}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
                                         {user.inventory.length === 0 && (
                                             <div className="col-span-full py-16 text-center text-slate-500 border border-dashed border-white/10 rounded-xl bg-[#131b2e]/50">
                                                 <Package className="w-12 h-12 mx-auto mb-4 opacity-20" />
@@ -1002,8 +1731,8 @@ export default function App() {
                     ) : null}
                 </div>
 
-                {/* Live Sidebar - Hidden on small screens, fixed on right for large screens */}
-                <LiveSidebar />
+                {/* Live Sidebar - Hidden on small screens, fixed on right for large screens, and hidden on admin panel */}
+                {view.page !== 'ADMIN' && <LiveSidebar />}
 
             </div>
 
@@ -1120,6 +1849,23 @@ export default function App() {
                                         </>
                                     ) : (
                                         <>
+                                            {/* Demo Comparison Widget */}
+                                            <div className="col-span-2 mb-3 p-4 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-xl">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">Demo Result</span>
+                                                    <span className="text-xs font-bold text-emerald-400">If Real: +${rollResult.item.value.toFixed(2)}</span>
+                                                </div>
+                                                <div className="text-sm text-slate-300 leading-relaxed">
+                                                    {rollResult.item.value >= selectedBox.price * 2 ? (
+                                                        <span className="text-emerald-400 font-semibold">🎉 Profit! You would've won ${(rollResult.item.value - selectedBox.price).toFixed(2)} more than the box cost!</span>
+                                                    ) : rollResult.item.value >= selectedBox.price ? (
+                                                        <span className="text-slate-300">📦 Break-even! This item is worth the box price.</span>
+                                                    ) : (
+                                                        <span className="text-slate-400">💡 Try again - you might get something better!</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
                                             <button
                                                 onClick={() => {
                                                     resetOpenState();
@@ -1129,39 +1875,74 @@ export default function App() {
                                                 className="col-span-2 group relative overflow-hidden bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl py-4 transition-all duration-300 shadow-[0_0_30px_rgba(147,51,234,0.3)]"
                                             >
                                                 <div className="flex flex-col items-center gap-1 relative z-10">
-                                                    <span className="text-[10px] font-bold opacity-80 uppercase tracking-wide">That was a demo!</span>
+                                                    <span className="text-[10px] font-bold opacity-80 uppercase tracking-wide">Liked what you saw?</span>
                                                     <span className="flex items-center gap-2 font-bold text-lg">
                                                         PLAY FOR REAL <Trophy className="w-4 h-4" />
                                                     </span>
                                                 </div>
                                             </button>
 
-                                            <button
-                                                onClick={() => {
-                                                    resetOpenState();
-                                                    setIsDemoMode(false);
-                                                    setView({ page: 'HOME' });
-                                                }}
-                                                className="col-span-2 mt-2 text-xs text-slate-500 hover:text-white transition-colors uppercase font-bold tracking-widest py-2"
-                                            >
-                                                Exit Demo
-                                            </button>
+                                            <div className="col-span-2 grid grid-cols-2 gap-3 mt-2">
+                                                <button
+                                                    onClick={() => {
+                                                        resetOpenState();
+                                                        // Keep demo mode and try again
+                                                        handleDemoOpen();
+                                                    }}
+                                                    className="bg-[#131b2e] hover:bg-[#1c263d] border border-white/10 text-slate-300 font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <RefreshCw className="w-4 h-4" />
+                                                    Try Again
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        resetOpenState();
+                                                        setIsDemoMode(false);
+                                                        setView({ page: 'HOME' });
+                                                    }}
+                                                    className="bg-[#131b2e] hover:bg-[#1c263d] border border-white/10 text-slate-300 font-bold py-3 rounded-xl transition-all"
+                                                >
+                                                    Browse Boxes
+                                                </button>
+                                            </div>
                                         </>
                                     )}
                                 </div>
 
-                                <button
-                                    onClick={() => { handleSellItem(); handleOpenBox(); }}
-                                    className="w-full bg-[#2a213e] hover:bg-[#3b2d5a] border border-purple-500/30 rounded-xl py-3 flex items-center justify-between px-4 transition-all group"
-                                >
-                                    <div className="flex items-center gap-2 text-purple-300 font-bold text-sm">
-                                        <RefreshCw className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
-                                        <span>SPIN AGAIN</span>
-                                    </div>
-                                    <div className="font-mono font-bold text-white bg-black/30 px-2 py-1 rounded">
-                                        ${(selectedBox.salePrice || selectedBox.price).toFixed(2)}
-                                    </div>
-                                </button>
+                                {!isDemoMode && (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                // 1. Sell current item first (this updates balance)
+                                                await handleSellItem();
+
+                                                // 2. Wait a moment for state to settle
+                                                await new Promise(resolve => setTimeout(resolve, 100));
+
+                                                // 3. Refresh user to get updated nonce from database
+                                                if (user) {
+                                                    const refreshedUser = await getUser(user.id);
+                                                    setUser(refreshedUser);
+                                                }
+
+                                                // 4. Then spin again with fresh nonce
+                                                handleOpenBox();
+                                            } catch (error) {
+                                                console.error('Error in spin again:', error);
+                                                alert('Failed to spin again. Please try manually.');
+                                            }
+                                        }}
+                                        className="w-full bg-[#1a1f2e] hover:bg-[#252b3d] border border-white/10 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-between px-6 group"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <RefreshCw className="w-5 h-5 group-hover:rotate-180 transition-transform duration-500" />
+                                            <span>SPIN AGAIN</span>
+                                        </div>
+                                        <div className="bg-[#0b0f19] px-3 py-1 rounded text-sm font-mono">
+                                            ${selectedBox?.price}
+                                        </div>
+                                    </button>
+                                )}
 
                             </div>
                         </div>
@@ -1280,6 +2061,13 @@ export default function App() {
                         onClose={() => setShowCryptoDeposit(false)}
                         userId={user.id}
                         currency={selectedCrypto}
+                        onDepositCredited={async () => {
+                            // Refresh user balance when deposit is credited
+                            if (user) {
+                                const updatedUser = await getUser(user.id);
+                                setUser(updatedUser);
+                            }
+                        }}
                     />
                 )
             }
@@ -1308,6 +2096,25 @@ export default function App() {
                     </button>
                 )
             }
+
+            {/* Footer with Legal Links */}
+            <footer className="fixed bottom-4 right-4 z-30 flex gap-3 text-xs">
+                <a
+                    href="/terms-of-service.html"
+                    target="_blank"
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                    Terms of Service
+                </a>
+                <span className="text-slate-600">•</span>
+                <a
+                    href="/privacy-policy.html"
+                    target="_blank"
+                    className="text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                    Privacy Policy
+                </a>
+            </footer>
 
         </div >
     );

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Battle, LootBox, User } from '../types';
 import { INITIAL_BOXES } from '../constants';
-import { Swords, Users, Plus, Crown, ShieldCheck, Sword, Zap, Lock, LogIn, Skull } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
+import { Swords, Users, Plus, Crown, ShieldCheck, Sword, Zap, Lock, LogIn, Skull, Eye } from 'lucide-react';
 
 interface BattleLobbyProps {
   battles: Battle[];
@@ -14,6 +15,44 @@ interface BattleLobbyProps {
 export const BattleLobby: React.FC<BattleLobbyProps> = ({ battles = [], user, onJoin, onCreate, onWatch }) => {
   const [activeTab, setActiveTab] = useState<'ALL' | '1v1' | '2v2' | '3v3'>('ALL');
   
+  // Periodically create random battles every 15 minutes
+  useEffect(() => {
+    const createRandomBattle = async () => {
+      try {
+        const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        if (!anonKey) {
+          console.error('VITE_SUPABASE_ANON_KEY is missing');
+          return;
+        }
+
+        const { data, error } = await supabase.functions.invoke('create-random-battle', {
+          headers: {
+            Authorization: `Bearer ${anonKey}`
+          }
+        });
+
+        if (error) {
+          console.error('Error creating random battle:', error);
+          return;
+        }
+
+        if (data && data.success) {
+          console.log('✅ Random battle created:', data.battle.id);
+        }
+      } catch (error) {
+        console.error('Error calling create-random-battle function:', error);
+      }
+    };
+
+    // Create a battle immediately on mount
+    createRandomBattle();
+
+    // Then create one every 15 minutes (900000 ms)
+    const interval = setInterval(createRandomBattle, 15 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   if (!battles) return <div className="min-h-screen flex items-center justify-center text-slate-500">Loading Battles...</div>;
 
   const filteredBattles = battles.filter(b => {
@@ -119,7 +158,11 @@ export const BattleLobby: React.FC<BattleLobbyProps> = ({ battles = [], user, on
                  const isPlayerInBattle = user && battle.players.some(p => p?.id === user.id);
 
                  return (
-                     <div key={battle.id} className="group relative bg-[#131b2e] rounded-xl border border-white/5 overflow-hidden hover:border-white/10 transition-all">
+                     <div key={battle.id} className={`group relative bg-[#131b2e] rounded-xl border overflow-hidden transition-all ${
+                         battle.status === 'FINISHED' 
+                             ? 'border-red-500/30 opacity-75' 
+                             : 'border-white/5 hover:border-white/10'
+                     }`}>
                          <div className={`absolute inset-0 bg-gradient-to-br ${box.color} opacity-5 group-hover:opacity-10 transition-opacity`}></div>
                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                          
@@ -135,15 +178,31 @@ export const BattleLobby: React.FC<BattleLobbyProps> = ({ battles = [], user, on
                                          <div className="text-white font-bold leading-none mb-1">{box.name}</div>
                                          <div className="flex items-center gap-1 text-xs text-emerald-400 font-mono">
                                              <span className="font-bold">${battle.price}</span>
-                                             <span className="text-slate-500">/ round</span>
+                                             <span className="text-slate-500">to join</span>
                                          </div>
                                      </div>
                                  </div>
                                  <div className="flex flex-col items-end gap-1">
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold bg-black/40 border-white/5 text-slate-300">
-                                        <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                                    {battle.status === 'FINISHED' && (
+                                        <div className="px-2 py-1 rounded bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold uppercase mb-1">
+                                            Forfeited
+                                        </div>
+                                    )}
+                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold ${
+                                        battle.status === 'FINISHED' 
+                                            ? 'bg-red-500/10 border-red-500/30 text-red-400' 
+                                            : 'bg-black/40 border-white/5 text-slate-300'
+                                    }`}>
+                                        {battle.status === 'FINISHED' ? (
+                                            <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                        ) : (
+                                            <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                                        )}
                                         <span>{`${battle.roundCount} Rounds`}</span>
                                     </div>
+                                    {battle.roundCount > 1 && (
+                                        <div className="text-[9px] text-yellow-500/80 font-bold uppercase">Last Round Only</div>
+                                    )}
                                     <div className="text-[10px] text-slate-500 font-bold uppercase">{battle.playerCount === 2 ? '1v1' : battle.playerCount === 4 ? '2v2' : '3v3'} Mode</div>
                                  </div>
                              </div>
@@ -170,13 +229,25 @@ export const BattleLobby: React.FC<BattleLobbyProps> = ({ battles = [], user, on
                              </div>
 
                              {/* Footer Action */}
-                             {isPlayerInBattle ? (
-                                 <button onClick={() => onWatch(battle)} className="w-full py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-bold text-sm hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2">
-                                     <LogIn className="w-4 h-4" /> RETURN TO BATTLE
-                                 </button>
-                             ) : battle.status === 'ACTIVE' || battle.status === 'FINISHED' ? (
+                             {isPlayerInBattle && battle.status === 'WAITING' ? (
+                                <button onClick={() => onWatch(battle)} className="w-full py-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 font-bold text-sm hover:bg-emerald-500/20 transition-colors flex items-center justify-center gap-2">
+                                    <LogIn className="w-4 h-4" /> REJOIN BATTLE
+                                </button>
+                             ) : isPlayerInBattle && battle.status === 'ACTIVE' ? (
+                                <button disabled className="w-full py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2">
+                                    <Lock className="w-4 h-4" /> FORFEITED
+                                </button>
+                             ) : isPlayerInBattle && battle.status === 'FINISHED' ? (
+                                <button onClick={() => onWatch(battle)} className="w-full py-3 rounded-lg bg-slate-500/10 border border-slate-500/30 text-slate-400 font-bold text-sm hover:bg-slate-500/20 transition-colors flex items-center justify-center gap-2">
+                                    <Eye className="w-4 h-4" /> VIEW RESULTS
+                                </button>
+                             ) : battle.status === 'ACTIVE' ? (
                                  <button onClick={() => onWatch(battle)} className="w-full py-3 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-bold text-sm hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
                                      <Zap className="w-4 h-4" /> WATCH BATTLE
+                                 </button>
+                             ) : battle.status === 'FINISHED' ? (
+                                 <button disabled className="w-full py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2 opacity-60">
+                                     <Lock className="w-4 h-4" /> FORFEITED
                                  </button>
                              ) : isFull ? (
                                 <button disabled className="w-full py-3 rounded-lg bg-white/5 border border-white/5 text-slate-500 font-bold text-sm cursor-not-allowed flex items-center justify-center gap-2">

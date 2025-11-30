@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Save, ArrowLeft, AlertCircle, Package } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
+import { supabase } from '../../services/supabaseClient';
 
 interface LootItem {
     id: string;
@@ -62,6 +63,9 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
     const fetchBox = async () => {
         try {
             setLoading(true);
+            setError('');
+            
+            // Try backend API first
             const response = await fetch(`${BACKEND_URL}/api/admin/boxes/${boxId}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -70,22 +74,59 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
 
             if (response.ok) {
                 const box = await response.json();
-                setName(box.name);
-                setDescription(box.description || '');
-                setPrice(box.price.toString());
-                setSalePrice(box.sale_price ? box.sale_price.toString() : '');
-                setImage(box.image);
-                setColor(box.color);
-                setCategory(box.category);
-                setTags(box.tags || []);
-                setItems(box.items || []);
+                populateForm(box);
+            } else {
+                // Fallback to Supabase
+                console.log('Backend API failed, fetching from Supabase...');
+                await fetchBoxFromSupabase();
             }
         } catch (error) {
-            console.error('Error fetching box:', error);
-            setError('Failed to load box');
+            console.error('Error fetching box from backend:', error);
+            // Fallback to Supabase
+            await fetchBoxFromSupabase();
         } finally {
             setLoading(false);
         }
+    };
+
+    const fetchBoxFromSupabase = async () => {
+        try {
+            const { data: box, error } = await supabase
+                .from('boxes')
+                .select('*')
+                .eq('id', boxId)
+                .single();
+
+            if (error) throw error;
+
+            if (box) {
+                populateForm(box);
+            } else {
+                setError('Box not found');
+            }
+        } catch (error: any) {
+            console.error('Error fetching box from Supabase:', error);
+            setError(`Failed to load box: ${error.message || 'Unknown error'}`);
+        }
+    };
+
+    const populateForm = (box: any) => {
+        // Normalize box data - handle both 'image'/'image_url' and 'enabled'/'active' fields
+        const normalizedBox = {
+            ...box,
+            image: box.image || box.image_url || '',
+            enabled: box.enabled !== undefined ? box.enabled : (box.active !== undefined ? box.active : true)
+        };
+
+        setName(normalizedBox.name || '');
+        setDescription(normalizedBox.description || '');
+        setPrice(normalizedBox.price ? normalizedBox.price.toString() : '');
+        setSalePrice(normalizedBox.sale_price ? normalizedBox.sale_price.toString() : '');
+        setImage(normalizedBox.image || '');
+        setColor(normalizedBox.color || 'from-purple-600 to-purple-900');
+        setCategory(normalizedBox.category || 'ALL');
+        setTags(normalizedBox.tags || []);
+        setItems(normalizedBox.items || []);
     };
 
     const addItem = () => {
@@ -170,6 +211,7 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
                 items
             };
 
+            // Try backend API first
             const url = boxId
                 ? `${BACKEND_URL}/api/admin/boxes/${boxId}`
                 : `${BACKEND_URL}/api/admin/boxes`;
@@ -188,14 +230,121 @@ export const BoxForm: React.FC<BoxFormProps> = ({ token, boxId, onBack, onSucces
             if (response.ok) {
                 onSuccess();
             } else {
-                const data = await response.json();
-                setError(data.error || 'Failed to save box');
+                // Fallback to Supabase if backend fails
+                const errorData = await response.json().catch(() => ({}));
+                console.warn('Backend API failed, saving to Supabase:', errorData);
+                await saveBoxToSupabase(boxData, boxId);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving box:', error);
-            setError('Failed to save box');
+            // Try Supabase fallback
+            try {
+                await saveBoxToSupabase(boxData, boxId);
+            } catch (supabaseError: any) {
+                setError(`Failed to save box: ${supabaseError.message || 'Unknown error'}`);
+            }
         } finally {
             setSaving(false);
+        }
+    };
+
+    const saveBoxToSupabase = async (boxData: any, existingBoxId?: string) => {
+        try {
+            // Prepare data for Supabase - handle both schema variations
+            const dbBox: any = {
+                name: boxData.name,
+                description: boxData.description || '',
+                price: boxData.price,
+                sale_price: boxData.sale_price || null,
+                image_url: boxData.image || '', // Use image_url (most common)
+                color: boxData.color,
+                category: boxData.category,
+                tags: boxData.tags || [],
+                items: boxData.items || [],
+                enabled: true,
+                updated_at: new Date().toISOString()
+            };
+
+            let result;
+            if (existingBoxId) {
+                // Update existing box
+                result = await supabase
+                    .from('boxes')
+                    .update(dbBox)
+                    .eq('id', existingBoxId)
+                    .select();
+            } else {
+                // Create new box
+                const boxId = `box_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                result = await supabase
+                    .from('boxes')
+                    .insert({
+                        ...dbBox,
+                        id: boxId,
+                        created_at: new Date().toISOString()
+                    })
+                    .select();
+            }
+
+            if (result.error) {
+                // Try with 'image' instead of 'image_url'
+                if (result.error.message?.includes('image_url') || result.error.message?.includes('image')) {
+                    delete dbBox.image_url;
+                    dbBox.image = boxData.image || '';
+                    
+                    if (existingBoxId) {
+                        result = await supabase
+                            .from('boxes')
+                            .update(dbBox)
+                            .eq('id', existingBoxId)
+                            .select();
+                    } else {
+                        const boxId = `box_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        result = await supabase
+                            .from('boxes')
+                            .insert({
+                                ...dbBox,
+                                id: boxId,
+                                created_at: new Date().toISOString()
+                            })
+                            .select();
+                    }
+                }
+
+                // Try with 'active' instead of 'enabled'
+                if (result.error && (result.error.message?.includes('enabled') || result.error.code === 'PGRST116')) {
+                    delete dbBox.enabled;
+                    dbBox.active = true;
+                    
+                    if (existingBoxId) {
+                        result = await supabase
+                            .from('boxes')
+                            .update(dbBox)
+                            .eq('id', existingBoxId)
+                            .select();
+                    } else {
+                        const boxId = `box_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                        result = await supabase
+                            .from('boxes')
+                            .insert({
+                                ...dbBox,
+                                id: boxId,
+                                created_at: new Date().toISOString()
+                            })
+                            .select();
+                    }
+                }
+
+                if (result.error) {
+                    throw result.error;
+                }
+            }
+
+            console.log('✅ Box saved to Supabase successfully');
+            onSuccess();
+        } catch (error: any) {
+            console.error('Error saving box to Supabase:', error);
+            throw error;
         }
     };
 

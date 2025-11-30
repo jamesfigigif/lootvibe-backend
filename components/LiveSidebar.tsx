@@ -39,10 +39,27 @@ const MOCK_USERNAMES = [
     'RandyY', 'AmberZ', 'LouisA', 'BrittanyB', 'RussellC', 'RoseD', 'VincentE', 'DianaF', 'PhilipG', 'NatalieH',
     'BobbyI', 'SophiaJ', 'JohnnyK', 'AlexisL', 'BradleyM', 'LoriN'
 ];
-const MOCK_BOXES = ['Tech Box', 'Streetwear Box', 'Luxury Box', 'Crypto Box', 'Budget Box', 'Gamer Box', 'Sneaker Box'];
 
-// Collect all items from all boxes and filter to under $1500
-const ALL_PRIZE_ITEMS = INITIAL_BOXES.flatMap(box => box.items).filter(item => item.value <= 1500);
+// Create a mapping of items to their boxes (items with their box names)
+// This ensures each item is matched to its actual box
+interface ItemWithBox {
+    item: typeof INITIAL_BOXES[0]['items'][0];
+    boxName: string;
+}
+
+const ALL_PRIZE_ITEMS_WITH_BOXES: ItemWithBox[] = INITIAL_BOXES.flatMap(box =>
+    box.items
+        .filter(item => item.value <= 1500)
+        .map(item => ({
+            item,
+            boxName: box.name
+        }))
+);
+
+// Debug: Log available items count
+if (typeof window !== 'undefined') {
+    // console.log('Live Drops: Available items count:', ALL_PRIZE_ITEMS_WITH_BOXES.length);
+}
 
 // Helper to preload images
 const preloadImage = (src: string): Promise<void> => {
@@ -58,28 +75,37 @@ export const LiveSidebar = () => {
     const [drops, setDrops] = useState<Drop[]>([]);
 
     useEffect(() => {
-        // 1. Fetch initial drops
+        // 1. Fetch initial drops from database (shared state for all users)
         const fetchInitialDrops = async () => {
             const { data, error } = await supabase
                 .from('live_drops')
                 .select('*')
                 .order('created_at', { ascending: false })
-                .limit(20);
+                .limit(50);
 
             if (data) {
-                // Filter out items > $1500 as per user request
-                const filteredData = data.filter(drop => drop.value <= 1500);
+                // Get valid box names from INITIAL_BOXES
+                const validBoxNames = new Set(INITIAL_BOXES.map(box => box.name));
+
+                // Filter out items > $1500 AND items from boxes that don't exist
+                const filteredData = data.filter(drop =>
+                    drop.value <= 1500 && validBoxNames.has(drop.box_name)
+                );
                 setDrops(filteredData);
             }
         };
 
         fetchInitialDrops();
 
-        // 2. Subscribe to new drops
+        // 2. Subscribe to new drops (real-time updates)
         const subscription = supabase
             .channel('live_drops_channel')
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'live_drops' }, async (payload) => {
                 const newDrop = payload.new as Drop;
+                // Get valid box names from INITIAL_BOXES
+                const validBoxNames = new Set(INITIAL_BOXES.map(box => box.name));
+                // Filter out items over $1500 AND items from boxes that don't exist
+                if (newDrop.value > 1500 || !validBoxNames.has(newDrop.box_name)) return;
                 // Preload image before showing
                 if (newDrop.item_image) {
                     await preloadImage(newDrop.item_image);
@@ -88,42 +114,120 @@ export const LiveSidebar = () => {
             })
             .subscribe();
 
-        // 3. Mock Drops Generator (Recursive timeout for random intervals)
+        // 3. Generate new drops every 1-3 minutes
         let mockTimeout: NodeJS.Timeout;
+        let isGenerating = false;
+
+        const generateAndInsertDrop = async () => {
+            // Prevent multiple clients from generating at the same time
+            if (isGenerating) {
+                return;
+            }
+            isGenerating = true;
+
+            // Check if we have items available
+            if (ALL_PRIZE_ITEMS_WITH_BOXES.length === 0) {
+                console.warn('No prize items available for live drops');
+                isGenerating = false;
+                return;
+            }
+
+            // Pick a random item with its correct box name
+            const randomItemWithBox = ALL_PRIZE_ITEMS_WITH_BOXES[Math.floor(Math.random() * ALL_PRIZE_ITEMS_WITH_BOXES.length)];
+            const randomUser = MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)] + Math.floor(Math.random() * 100);
+
+            const mockDrop = {
+                id: `drop-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                user_name: randomUser,
+                item_name: randomItemWithBox.item.name,
+                item_image: randomItemWithBox.item.image,
+                box_name: randomItemWithBox.boxName,
+                value: randomItemWithBox.item.value
+            };
+
+            // Insert into database (subscription will handle adding to UI)
+            try {
+                const { data, error } = await supabase
+                    .from('live_drops')
+                    .insert(mockDrop)
+                    .select()
+                    .single();
+
+                if (error) {
+                    console.error('Failed to insert mock drop:', error);
+                } else {
+                    // Drop inserted successfully
+                }
+            } catch (e) {
+                console.error('Error inserting mock drop:', e);
+            } finally {
+                isGenerating = false;
+            }
+        };
 
         const scheduleNextDrop = () => {
-            const randomDelay = Math.floor(Math.random() * 120000) + 60000; // 1-3 minutes (60000 - 180000 ms)
+            // Random delay between 1-3 minutes (60000 - 180000 ms)
+            const randomDelay = Math.floor(Math.random() * 120000) + 60000;
+            const delayMinutes = (randomDelay / 60000).toFixed(1);
 
             mockTimeout = setTimeout(async () => {
-                // Use real prize items under $1500
-                const randomItem = ALL_PRIZE_ITEMS[Math.floor(Math.random() * ALL_PRIZE_ITEMS.length)];
-                const randomUser = MOCK_USERNAMES[Math.floor(Math.random() * MOCK_USERNAMES.length)] + Math.floor(Math.random() * 100);
-                const randomBox = MOCK_BOXES[Math.floor(Math.random() * MOCK_BOXES.length)];
+                // Check if a drop was added recently (within last 30 seconds) to avoid duplicates
+                const { data: recentDrops, error: recentError } = await supabase
+                    .from('live_drops')
+                    .select('created_at')
+                    .order('created_at', { ascending: false })
+                    .limit(1);
 
-                const mockDrop: Drop = {
-                    id: `mock-${Date.now()}-${Math.random()}`,
-                    user_name: randomUser,
-                    item_name: randomItem.name,
-                    item_image: randomItem.image,
-                    box_name: randomBox,
-                    value: randomItem.value,
-                    created_at: new Date().toISOString()
-                };
-
-                // Preload image before showing
-                if (mockDrop.item_image) {
-                    await preloadImage(mockDrop.item_image);
+                if (recentError) {
+                    console.error('Error checking recent drops:', recentError);
                 }
 
-                setDrops(prev => [mockDrop, ...prev].slice(0, 50));
+                if (recentDrops && recentDrops.length > 0) {
+                    const lastDropTime = new Date(recentDrops[0].created_at).getTime();
+                    const timeSinceLastDrop = Date.now() - lastDropTime;
+                    // Only generate if last drop was more than 30 seconds ago
+                    if (timeSinceLastDrop < 30000) {
+                        // console.log('Live Drops: Drop was added recently, rescheduling...');
+                        // Reschedule for later
+                        scheduleNextDrop();
+                        return;
+                    }
+                }
 
+                await generateAndInsertDrop();
                 // Schedule next drop
                 scheduleNextDrop();
-
             }, randomDelay);
         };
 
-        scheduleNextDrop();
+        // Generate first drop immediately if database is empty, then start scheduling
+        const initializeDrops = async () => {
+            console.log('Live Drops: Initializing...');
+            const { data: existingDrops, error: checkError } = await supabase
+                .from('live_drops')
+                .select('id')
+                .limit(1);
+
+            if (checkError) {
+                console.error('Live Drops: Error checking existing drops:', checkError);
+            }
+
+            if (!existingDrops || existingDrops.length === 0) {
+                // console.log('Live Drops: Database is empty, generating initial drop immediately...');
+                await generateAndInsertDrop();
+            } else {
+                // console.log('Live Drops: Found', existingDrops.length, 'existing drop(s) in database');
+            }
+
+            // Start scheduling regular drops
+            // console.log('Live Drops: Starting scheduled drops...');
+            scheduleNextDrop();
+        };
+
+        // Small delay to ensure subscription is set up first
+        setTimeout(() => {
+            initializeDrops();
+        }, 1000);
 
         return () => {
             subscription.unsubscribe();
@@ -181,11 +285,11 @@ export const LiveSidebar = () => {
                             </div>
 
                             {/* Info */}
-                            <div className="flex-1 min-w-0 pr-2">
-                                <div className={`text-sm font-bold truncate ${rarity === Rarity.LEGENDARY ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200'}`}>
+                            <div className="flex-1 min-w-0 pr-12">
+                                <div className={`text-sm font-bold line-clamp-2 leading-tight break-words ${rarity === Rarity.LEGENDARY ? 'text-yellow-400 drop-shadow-sm' : 'text-slate-200'}`}>
                                     {drop.item_name}
                                 </div>
-                                <div className="text-[10px] text-slate-500 truncate mb-1">{drop.box_name}</div>
+                                <div className="text-[10px] text-slate-500 truncate mb-1 mt-0.5">{drop.box_name}</div>
 
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
@@ -199,8 +303,8 @@ export const LiveSidebar = () => {
                             </div>
 
                             {/* Value Badge */}
-                            <div className="absolute top-2 right-2">
-                                <span className="text-[10px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                            <div className="absolute top-2 right-2 flex-shrink-0">
+                                <span className="text-[10px] font-mono font-bold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 whitespace-nowrap">
                                     ${drop.value.toFixed(0)}
                                 </span>
                             </div>
@@ -213,3 +317,4 @@ export const LiveSidebar = () => {
         </div>
     );
 };
+

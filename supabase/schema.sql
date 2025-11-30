@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     item_data JSONB NOT NULL,
+    shipping_status TEXT CHECK (shipping_status IN ('PROCESSING', 'SHIPPED', 'DELIVERED')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS inventory_items (
 CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'BET', 'WIN', 'PURCHASE')),
+    type TEXT NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'BET', 'WIN', 'PURCHASE', 'SHIPPING')),
     amount DECIMAL(10, 2) NOT NULL,
     description TEXT,
     timestamp BIGINT NOT NULL,
@@ -49,6 +50,7 @@ CREATE TABLE IF NOT EXISTS shipments (
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_inventory_user_id ON inventory_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_shipping_status ON inventory_items(shipping_status);
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_user_id ON shipments(user_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_status ON shipments(status);

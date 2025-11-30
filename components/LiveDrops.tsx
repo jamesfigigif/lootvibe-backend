@@ -18,26 +18,9 @@ export const LiveDrops: React.FC = () => {
    const [loading, setLoading] = useState(true);
 
    useEffect(() => {
-      // Fetch initial drops
-      const fetchDrops = async () => {
-         try {
-            const { data, error } = await supabase
-               .from('live_drops')
-               .select('*')
-               .order('created_at', { ascending: false })
-               .limit(10);
-
-            if (data) {
-               setDrops(data);
-            }
-         } catch (e) {
-            console.error('Live drops fetch error', e);
-         } finally {
-            setLoading(false);
-         }
-      };
-
-      fetchDrops();
+      // Start with empty drops (removed all old mock data)
+      setDrops([]);
+      setLoading(false);
 
       // Subscribe to new drops
       const subscription = supabase

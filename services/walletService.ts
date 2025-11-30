@@ -30,7 +30,10 @@ export const getUser = async (userId: string = 'user-1'): Promise<User> => {
                 id: existingUser.id,
                 username: existingUser.username,
                 balance: parseFloat(existingUser.balance),
-                inventory: inventoryData?.map(item => item.item_data) || [],
+                inventory: inventoryData?.map(item => ({
+                    ...item.item_data,
+                    shippingStatus: item.shipping_status || undefined
+                })) || [],
                 shipments: shipmentsData?.map(s => ({
                     id: s.id,
                     items: s.items,
@@ -122,6 +125,9 @@ export const addTransaction = async (
     amount: number,
     description: string
 ): Promise<Transaction> => {
+    // @deprecated SECURITY WARNING: This function updates the database directly from the client.
+    // For critical financial operations (like battle wins), use Supabase Edge Functions (e.g., 'battle-claim') instead.
+    console.warn('⚠️ addTransaction called from client. Prefer server-side logic for security.');
     const tx: Transaction = {
         id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         userId,
@@ -207,6 +213,8 @@ export const getTransactions = async (userId: string = 'user-1'): Promise<Transa
 };
 
 // Helper to update user state directly (for other services)
+// @deprecated SECURITY WARNING: This function updates the database directly from the client.
+// For critical state changes, use Supabase Edge Functions instead.
 export const updateUserState = async (userId: string = 'user-1', updates: Partial<Omit<User, 'id' | 'shipments'>>) => {
     try {
         const dbUpdates: any = {};

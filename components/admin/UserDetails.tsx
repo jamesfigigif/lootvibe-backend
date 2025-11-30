@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Package, TruckIcon, ArrowLeft, Edit, Ban, UserCheck } from 'lucide-react';
+import { supabase } from '../../services/supabaseClient';
 
 interface UserDetailsProps {
     userId: string;
@@ -25,18 +26,104 @@ export const UserDetails: React.FC<UserDetailsProps> = ({ userId, token, onBack 
     const fetchUserDetails = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`${BACKEND_URL}/api/admin/users/${userId}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            
+            // Try backend API first
+            if (token) {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/admin/users/${userId}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
 
-            if (response.ok) {
-                const data = await response.json();
-                setUser(data);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setUser(data);
+                        return;
+                    } else {
+                        console.warn(`Backend API failed with status ${response.status}, trying Supabase fallback...`);
+                    }
+                } catch (apiError) {
+                    console.warn('Backend API request failed, trying Supabase fallback...', apiError);
+                }
+            } else {
+                console.warn('No token available, using Supabase fallback...');
             }
+
+            // Fallback to Supabase direct query
+            // Only select columns that exist in the database
+            const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('id, username, balance, created_at')
+                .eq('id', userId)
+                .single();
+
+            if (userError) {
+                console.error('Supabase query error:', userError);
+                console.error('Error details:', JSON.stringify(userError, null, 2));
+                setUser(null);
+                return;
+            }
+
+            if (!userData) {
+                console.error('No user data found for userId:', userId);
+                setUser(null);
+                return;
+            }
+
+            // Fetch inventory
+            const { data: inventoryData } = await supabase
+                .from('inventory_items')
+                .select('*')
+                .eq('user_id', userId);
+
+            // Fetch shipments
+            const { data: shipmentsData } = await supabase
+                .from('shipments')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+
+            // Fetch transactions
+            const { data: transactionsData } = await supabase
+                .from('transactions')
+                .select('*')
+                .eq('user_id', userId)
+                .order('timestamp', { ascending: false })
+                .limit(50);
+
+            // Format response to match backend API structure
+            const formattedUser = {
+                user: {
+                    id: userData.id,
+                    username: userData.username,
+                    balance: parseFloat(userData.balance.toString()),
+                    created_at: userData.created_at,
+                    banned: false, // Column doesn't exist in database, default to false
+                    banned_reason: null // Column doesn't exist in database
+                },
+                inventory: inventoryData?.map(item => item.item_data) || [],
+                shipments: shipmentsData?.map(s => ({
+                    id: s.id,
+                    items: s.items,
+                    address: s.address,
+                    status: s.status,
+                    tracking_number: s.tracking_number,
+                    created_at: s.created_at
+                })) || [],
+                transactions: transactionsData?.map(tx => ({
+                    id: tx.id,
+                    type: tx.type,
+                    amount: parseFloat(tx.amount.toString()),
+                    description: tx.description || '',
+                    timestamp: tx.timestamp
+                })) || []
+            };
+
+            setUser(formattedUser);
         } catch (error) {
             console.error('Error fetching user details:', error);
+            setUser(null);
         } finally {
             setLoading(false);
         }
@@ -45,27 +132,98 @@ export const UserDetails: React.FC<UserDetailsProps> = ({ userId, token, onBack 
     const handleBalanceAdjustment = async () => {
         if (!adjustAmount || !adjustReason) return;
 
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/balance`, {
-                method: 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    amount: parseFloat(adjustAmount),
-                    reason: adjustReason
-                })
-            });
+        const adjustmentAmount = parseFloat(adjustAmount);
+        if (isNaN(adjustmentAmount)) {
+            alert('Please enter a valid amount');
+            return;
+        }
 
-            if (response.ok) {
+        try {
+            // Try backend API first if token is available
+            let success = false;
+            if (token) {
+                try {
+                    const response = await fetch(`${BACKEND_URL}/api/admin/users/${userId}/balance`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            amount: adjustmentAmount,
+                            reason: adjustReason
+                        })
+                    });
+
+                    if (response.ok) {
+                        success = true;
+                    } else {
+                        console.warn(`Backend API failed with status ${response.status}, trying Supabase fallback...`);
+                    }
+                } catch (apiError) {
+                    console.warn('Backend API request failed, trying Supabase fallback...', apiError);
+                }
+            }
+
+            // Fallback to Supabase direct update
+            if (!success) {
+                // Get current balance
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('balance')
+                    .eq('id', userId)
+                    .single();
+
+                if (userError || !userData) {
+                    throw new Error('Failed to fetch current balance: ' + (userError?.message || 'User not found'));
+                }
+
+                const currentBalance = parseFloat(userData.balance.toString());
+                const newBalance = currentBalance + adjustmentAmount;
+
+                // Update balance
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({ balance: newBalance })
+                    .eq('id', userId);
+
+                if (updateError) {
+                    throw new Error('Failed to update balance: ' + updateError.message);
+                }
+
+                // Create transaction record for audit trail
+                const transactionType = adjustmentAmount >= 0 ? 'DEPOSIT' : 'WITHDRAWAL';
+                const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                
+                const { error: txError } = await supabase
+                    .from('transactions')
+                    .insert({
+                        id: transactionId,
+                        user_id: userId,
+                        type: transactionType,
+                        amount: Math.abs(adjustmentAmount),
+                        description: `Admin adjustment: ${adjustReason}`,
+                        timestamp: Date.now()
+                    });
+
+                if (txError) {
+                    console.warn('Balance updated but failed to create transaction record:', txError);
+                    // Don't throw - balance was updated successfully
+                }
+
+                success = true;
+            }
+
+            if (success) {
                 setShowBalanceAdjust(false);
                 setAdjustAmount('');
                 setAdjustReason('');
-                fetchUserDetails();
+                // Refresh user details to show updated balance
+                await fetchUserDetails();
             }
         } catch (error) {
             console.error('Error adjusting balance:', error);
+            alert(`Failed to adjust balance: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
     };
 

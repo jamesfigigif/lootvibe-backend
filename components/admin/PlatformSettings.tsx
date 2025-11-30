@@ -15,32 +15,118 @@ export const PlatformSettings: React.FC<PlatformSettingsProps> = ({ token }) => 
         maintenance_mode: false,
         kyc_required: false,
         auto_approve_withdrawals: false,
+        manual_approval_threshold: '1000',
         max_withdrawal: '10000',
         support_email: 'support@lootvibe.com'
     });
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState('');
 
     const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+
+    // Fetch settings on mount
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`${BACKEND_URL}/api/admin/settings`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                // If API fails, try direct Supabase query structure
+                throw new Error('Failed to fetch settings');
+            }
+
+            const data = await response.json();
+            
+            // The API returns settings in key-value format, but we also need to check flat structure
+            // Try to get from platform_settings table directly
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabaseUrl = 'https://cbjdasfnwzizfphnwxfd.supabase.co';
+            const supabaseKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+            const supabase = createClient(supabaseUrl, supabaseKey);
+
+            const { data: platformSettings } = await supabase
+                .from('platform_settings')
+                .select('*')
+                .eq('id', 'default')
+                .single();
+
+            if (platformSettings) {
+                setSettings({
+                    min_btc_deposit: '0.0001',
+                    min_eth_deposit: '0.01',
+                    btc_confirmations: '3',
+                    eth_confirmations: '12',
+                    platform_fee: '5',
+                    maintenance_mode: false,
+                    kyc_required: platformSettings.kyc_required || false,
+                    auto_approve_withdrawals: platformSettings.auto_approve_withdrawals || false,
+                    manual_approval_threshold: platformSettings.manual_approval_threshold?.toString() || '1000',
+                    max_withdrawal: platformSettings.max_withdrawal_amount?.toString() || '10000',
+                    support_email: 'support@lootvibe.com'
+                });
+            }
+        } catch (error) {
+            console.error('Error fetching settings:', error);
+            // Keep default settings
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSave = async () => {
         try {
             setSaving(true);
             setMessage('');
 
-            // Save settings logic here
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Mock delay
+            // Update platform_settings table directly
+            const { createClient } = await import('@supabase/supabase-js');
+            const supabaseUrl = 'https://cbjdasfnwzizfphnwxfd.supabase.co';
+            const supabaseKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || '';
+            const supabase = createClient(supabaseUrl, supabaseKey);
+
+            const { error } = await supabase
+                .from('platform_settings')
+                .update({
+                    auto_approve_withdrawals: settings.auto_approve_withdrawals,
+                    manual_approval_threshold: parseFloat(settings.manual_approval_threshold) || 1000,
+                    max_withdrawal_amount: parseFloat(settings.max_withdrawal) || 10000,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', 'default');
+
+            if (error) throw error;
 
             setMessage('Settings saved successfully!');
             setTimeout(() => setMessage(''), 3000);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving settings:', error);
-            setMessage('Failed to save settings');
+            setMessage(`Failed to save settings: ${error.message}`);
         } finally {
             setSaving(false);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="p-8">
+                <div className="flex items-center justify-center py-16">
+                    <div className="text-center">
+                        <div className="w-12 h-12 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-slate-400">Loading settings...</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-8">
@@ -181,10 +267,27 @@ export const PlatformSettings: React.FC<PlatformSettingsProps> = ({ token }) => 
                             </div>
                         </label>
                         {settings.auto_approve_withdrawals && (
-                            <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-                                <p className="text-yellow-400 text-sm">
-                                    ⚠️ Warning: Auto-approved withdrawals will be processed immediately without admin review.
+                            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg space-y-4">
+                                <p className="text-blue-400 text-sm">
+                                    ℹ️ Auto-approval is enabled. Withdrawals below the threshold will be approved automatically.
                                 </p>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-300 mb-2">
+                                        Manual Approval Threshold ($)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        value={settings.manual_approval_threshold}
+                                        onChange={(e) => setSettings({ ...settings, manual_approval_threshold: e.target.value })}
+                                        className="w-full bg-[#0b0f19] border border-white/10 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none"
+                                        placeholder="1000"
+                                    />
+                                    <p className="text-xs text-slate-400 mt-2">
+                                        Withdrawals above ${settings.manual_approval_threshold} will require manual approval even with auto-approve enabled. This helps prevent large fraudulent withdrawals.
+                                    </p>
+                                </div>
                             </div>
                         )}
                     </div>

@@ -100,11 +100,25 @@ export const ShippingModal: React.FC<ShippingModalProps> = ({ items, onClose, on
                             ))}
                         </div>
 
-                        <div className="pt-4 border-t border-white/5 flex justify-between items-center">
-                            <span className="text-slate-400 text-sm">Total Value</span>
-                            <span className="text-2xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
-                                ${totalValue.toFixed(2)}
-                            </span>
+                        <div className="pt-4 border-t border-white/5 space-y-2">
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-400 text-sm">Total Value</span>
+                                <span className="text-lg font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
+                                    ${totalValue.toFixed(2)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-slate-400 text-sm">Shipping Fee</span>
+                                <span className="text-lg font-mono font-bold text-amber-400">
+                                    $15.00
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                <span className="text-slate-300 text-sm font-bold">Total</span>
+                                <span className="text-2xl font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
+                                    ${(totalValue + 15).toFixed(2)}
+                                </span>
+                            </div>
                         </div>
                     </div>
 

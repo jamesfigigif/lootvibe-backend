@@ -71,15 +71,21 @@ const CHARIZARD_ITEMS: LootItem[] = [
   createItem('cz8', 'Charizard Reverse Holo', 2, Rarity.COMMON, 36.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/cz8.webp'),
 ];
 
-// POKEMON BUDGET BOX - $8 box, ~$4.80 EV (60% profitability)
+// POKEMON BUDGET BOX - $8 box, ~$3.20 EV (60% profitability)
 const POKEMON_BUDGET_ITEMS: LootItem[] = [
-  createItem('pb1', 'Pokemon 151 ETB', 65, Rarity.LEGENDARY, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb1.webp'),
-  createItem('pb2', 'Iono Full Art', 18, Rarity.LEGENDARY, 1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb2.webp'),
-  createItem('pb3', 'Booster Bundle (3 Packs)', 12, Rarity.EPIC, 3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb3.webp'),
-  createItem('pb4', 'Holo Rare (Random)', 5, Rarity.EPIC, 8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb4.webp'),
-  createItem('pb5', 'Single Booster Pack', 4, Rarity.RARE, 20, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb5.webp'),
-  createItem('pb6', 'Reverse Holo Rare', 2, Rarity.COMMON, 30, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb6.webp'),
-  createItem('pb7', 'Pokemon Coin', 1, Rarity.COMMON, 37.8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb7.webp'),
+  // High tier from Treasure Box
+  createItem('pb1', 'Charizard UPC Promo Card', 25, Rarity.LEGENDARY, 0.3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/p11.webp'),
+  createItem('pb2', 'Pokemon 151 ETB', 65, Rarity.LEGENDARY, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb1.webp'),
+  createItem('pb3', 'Iono Full Art', 18, Rarity.LEGENDARY, 0.8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb2.webp'),
+  // Mid tier
+  createItem('pb4', '3-Pack Blister (Random)', 15, Rarity.EPIC, 2.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/p14.webp'),
+  createItem('pb5', 'Booster Bundle (3 Packs)', 12, Rarity.EPIC, 3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb3.webp'),
+  createItem('pb6', 'Holo Rare (Random)', 5, Rarity.EPIC, 7, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb4.webp'),
+  // Low tier
+  createItem('pb7', 'Single Booster Pack', 4, Rarity.RARE, 18, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb5.webp'),
+  createItem('pb8', 'Pokemon Sticker Pack', 2, Rarity.COMMON, 25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/p15.webp'),
+  createItem('pb9', 'Reverse Holo Rare', 2, Rarity.COMMON, 28, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pb6.webp'),
+  createItem('pb10', 'Single Holo Rare Card', 1, Rarity.COMMON, 15.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/p16.webp'),
 ];
 
 // MODERN HITS BOX - $35 box, ~$21 EV (60% profitability)
@@ -171,15 +177,16 @@ const SUPREME_ITEMS: LootItem[] = [
 
 
 const APPLE_BUDGET_ITEMS: LootItem[] = [
-  createItem('ab1', 'iPhone 12 (Refurbished)', 350, Rarity.LEGENDARY, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab1.webp'),
-  createItem('ab2', 'iPad 9th Gen', 250, Rarity.LEGENDARY, 1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab2.webp'),
-  createItem('ab3', 'AirPods 2nd Gen', 99, Rarity.EPIC, 3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab3.webp'),
-  createItem('ab4', 'Apple Pencil 2nd Gen', 89, Rarity.EPIC, 5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab4.webp'),
-  createItem('ab5', 'AirTag 4-Pack', 85, Rarity.EPIC, 6, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab5.webp'),
-  createItem('ab6', 'MagSafe Charger', 39, Rarity.RARE, 15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab6.webp'),
-  createItem('ab7', 'Apple AirTag (Single)', 29, Rarity.RARE, 20, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab7.webp'),
-  createItem('ab8', 'Apple Polishing Cloth', 19, Rarity.COMMON, 25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab8.webp'),
-  createItem('ab9', 'USB-C to Lightning Cable', 15, Rarity.COMMON, 24.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab9.webp'),
+  createItem('ab1', 'iPhone 12 (Refurbished)', 350, Rarity.LEGENDARY, 0.01, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab1.webp'),
+  createItem('ab2', 'iPad 9th Gen', 250, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab2.webp'),
+  createItem('ab3', 'AirPods 2nd Gen', 99, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab3.webp'),
+  createItem('ab4', 'Apple Pencil 2nd Gen', 89, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab4.webp'),
+  createItem('ab5', 'AirTag 4-Pack', 85, Rarity.EPIC, 1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab5.webp'),
+  createItem('ab6', 'MagSafe Charger', 39, Rarity.RARE, 3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab6.webp'),
+  createItem('ab7', 'Apple AirTag (Single)', 29, Rarity.RARE, 5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab7.webp'),
+  createItem('ab8', 'Apple Polishing Cloth', 19, Rarity.COMMON, 10, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab8.webp'),
+  createItem('ab9', 'USB-C to Lightning Cable', 15, Rarity.COMMON, 20, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab9.webp'),
+  createItem('ab10', 'Apple Logo Sticker', 2, Rarity.COMMON, 60.24, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ab10.webp'),
 ];
 
 const SAMSUNG_BUDGET_ITEMS: LootItem[] = [
@@ -194,48 +201,56 @@ const SAMSUNG_BUDGET_ITEMS: LootItem[] = [
   createItem('sb9', 'USB-C Cable', 10, Rarity.COMMON, 23.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/sb9.webp'),
 ];
 
+// GAMER BUDGET BOX - $10 box, ~$4.00 EV (60% profitability)
 const GAMER_BUDGET_ITEMS: LootItem[] = [
-  createItem('gb1', 'Razer Huntsman Mini', 120, Rarity.LEGENDARY, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb1.webp'),
-  createItem('gb2', 'Logitech G502 Hero', 50, Rarity.LEGENDARY, 2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb2.webp'),
-  createItem('gb3', 'HyperX Cloud Stinger 2', 40, Rarity.EPIC, 5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb3.webp'),
-  createItem('gb4', 'Xbox Wireless Controller', 60, Rarity.EPIC, 4, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb4.webp'),
-  createItem('gb5', 'Steam Gift Card $20', 20, Rarity.RARE, 15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb5.webp'),
-  createItem('gb6', 'Razer Gigantus V2 (Large)', 15, Rarity.RARE, 20, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb6.webp'),
-  createItem('gb7', 'Steam Gift Card $10', 10, Rarity.COMMON, 25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb7.webp'),
-  createItem('gb8', 'Random Steam Key (Indie)', 5, Rarity.COMMON, 20, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb8.webp'),
-  createItem('gb9', 'Cat 6 Ethernet Cable', 5, Rarity.COMMON, 8.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb9.webp'),
+  // Ultra rare tech items from TECH PREMIUM BOX (very low odds)
+  createItem('gb1', 'iPhone 15 Pro 256GB', 999, Rarity.LEGENDARY, 0.01, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/t3.webp'),
+  createItem('gb2', 'iPad Pro 11" M2', 799, Rarity.LEGENDARY, 0.01, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/t4.webp'),
+  createItem('gb3', 'AirPods Pro 2nd Gen', 249, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/t8.webp'),
+  createItem('gb4', 'Apple Watch Series 9 GPS', 399, Rarity.EPIC, 0.02, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/t7.webp'),
+  // Gaming peripherals (reduced odds for profitability)
+  createItem('gb5', 'Razer Huntsman Mini', 120, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb1.webp'),
+  createItem('gb6', 'Logitech G502 Hero', 50, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb2.webp'),
+  createItem('gb7', 'HyperX Cloud Stinger 2', 40, Rarity.EPIC, 0.8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb3.webp'),
+  createItem('gb8', 'Xbox Wireless Controller', 60, Rarity.EPIC, 0.4, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb4.webp'),
+  // Budget items
+  createItem('gb9', 'Steam Gift Card $20', 20, Rarity.RARE, 2.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb5.webp'),
+  createItem('gb10', 'Razer Gigantus V2 (Large)', 15, Rarity.RARE, 4, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb6.webp'),
+  createItem('gb11', 'Steam Gift Card $10', 10, Rarity.COMMON, 8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb7.webp'),
+  createItem('gb12', 'Random Steam Key (Indie)', 5, Rarity.COMMON, 15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb8.webp'),
+  createItem('gb13', 'Cat 6 Ethernet Cable', 5, Rarity.COMMON, 68.89, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gb9.webp'),
 ];
 
-// 2025 APPLE BOX - $75.99
+// 2025 APPLE BOX - $75.99 box, ~$45.60 EV (40% profitability)
 const APPLE_2025_ITEMS: LootItem[] = [
-  createItem('ap25_1', 'iPhone 17 Pro Max Cosmic Orange', 1599, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_1.webp'),
-  createItem('ap25_2', 'iPhone 17 Pro Deep Blue', 1499, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_2.webp'),
-  createItem('ap25_3', 'iPhone 17 Pro Silver', 1499, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_3.webp'),
-  createItem('ap25_4', 'iPhone Air Cloud White', 1399, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_4.webp'),
-  createItem('ap25_5', 'iPhone Air Space Light Gold', 1399, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_5.webp'),
-  createItem('ap25_6', 'iPhone Air Space Sky Blue', 1399, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_6.webp'),
-  createItem('ap25_7', 'iPhone Air Space Black', 1399, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_7.webp'),
-  createItem('ap25_8', 'iPhone 17 Black', 1029, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_8.webp'),
-  createItem('ap25_9', 'iPhone 17 Mist Blue', 1029, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_9.webp'),
-  createItem('ap25_10', 'iPhone 17 Sage', 1029, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_10.webp'),
-  createItem('ap25_11', 'iPhone 17 White', 1029, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_11.webp'),
-  createItem('ap25_12', 'iPhone 17 Lavender', 1029, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_12.webp'),
-  createItem('ap25_13', 'Watch Ultra 3 Titanium Milanese Loop Black', 899, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_13.webp'),
-  createItem('ap25_14', 'Watch Ultra 3 Titanium Milanese Loop Natural', 899, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_14.webp'),
-  createItem('ap25_15', 'Watch Ultra 3 Natural Ocean Band Neon Green', 799, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_15.webp'),
-  createItem('ap25_16', 'Watch Ultra 3 Alpine Loop Black', 799, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_16.webp'),
-  createItem('ap25_17', 'Watch Series 11 Titanium Milanese Loop Slate', 774, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_17.webp'),
-  createItem('ap25_18', 'Watch Series 11 Titanium Milanese Loop Gold', 774, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_18.webp'),
-  createItem('ap25_19', 'Watch Series 11 Titanium Milanese Loop Natural', 774, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_19.webp'),
+  createItem('ap25_1', 'iPhone 17 Pro Max Cosmic Orange', 1599, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_1.webp'),
+  createItem('ap25_2', 'iPhone 17 Pro Deep Blue', 1499, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_2.webp'),
+  createItem('ap25_3', 'iPhone 17 Pro Silver', 1499, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_3.webp'),
+  createItem('ap25_4', 'iPhone Air Cloud White', 1399, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_4.webp'),
+  createItem('ap25_5', 'iPhone Air Space Light Gold', 1399, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_5.webp'),
+  createItem('ap25_6', 'iPhone Air Space Sky Blue', 1399, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_6.webp'),
+  createItem('ap25_7', 'iPhone Air Space Black', 1399, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_7.webp'),
+  createItem('ap25_8', 'iPhone 17 Black', 1029, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_8.webp'),
+  createItem('ap25_9', 'iPhone 17 Mist Blue', 1029, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_9.webp'),
+  createItem('ap25_10', 'iPhone 17 Sage', 1029, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_10.webp'),
+  createItem('ap25_11', 'iPhone 17 White', 1029, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_11.webp'),
+  createItem('ap25_12', 'iPhone 17 Lavender', 1029, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_12.webp'),
+  createItem('ap25_13', 'Watch Ultra 3 Titanium Milanese Loop Black', 899, Rarity.EPIC, 0.15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_13.webp'),
+  createItem('ap25_14', 'Watch Ultra 3 Titanium Milanese Loop Natural', 899, Rarity.EPIC, 0.15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_14.webp'),
+  createItem('ap25_15', 'Watch Ultra 3 Natural Ocean Band Neon Green', 799, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_15.webp'),
+  createItem('ap25_16', 'Watch Ultra 3 Alpine Loop Black', 799, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_16.webp'),
+  createItem('ap25_17', 'Watch Series 11 Titanium Milanese Loop Slate', 774, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_17.webp'),
+  createItem('ap25_18', 'Watch Series 11 Titanium Milanese Loop Gold', 774, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_18.webp'),
+  createItem('ap25_19', 'Watch Series 11 Titanium Milanese Loop Natural', 774, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_19.webp'),
   createItem('ap25_20', 'Watch Series 11 Aluminum Jet Black Sport Band', 414, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_20.webp'),
   createItem('ap25_21', 'Watch Series 11 Aluminum Rose Gold Pride Edition', 414, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_21.webp'),
   createItem('ap25_22', 'Watch Series 11 Aluminum Silver Nike Veiled Grey', 414, Rarity.RARE, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_22.webp'),
   createItem('ap25_23', 'Watch Series 11 Aluminum Space Gray Anchor Blue', 414, Rarity.RARE, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_23.webp'),
-  createItem('ap25_24', 'Watch SE 3 Rubber Sport Band Light Blush', 279, Rarity.RARE, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_24.webp'),
-  createItem('ap25_25', 'Watch SE 3 Rubber Sport Band Midnight', 279, Rarity.RARE, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_25.webp'),
+  createItem('ap25_24', 'Watch SE 3 Rubber Sport Band Light Blush', 279, Rarity.RARE, 1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_24.webp'),
+  createItem('ap25_25', 'Watch SE 3 Rubber Sport Band Midnight', 279, Rarity.RARE, 1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_25.webp'),
   createItem('ap25_26', 'AirPods Pro 3', 249, Rarity.RARE, 2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_26.webp'),
-  createItem('ap25_27', 'Apple Gift Card $250', 229.99, Rarity.RARE, 10, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_27.webp'),
-  createItem('ap25_28', 'Red Delicious Apple', 0.99, Rarity.COMMON, 82.3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_28.webp'),
+  createItem('ap25_27', 'Apple Gift Card $250', 229.99, Rarity.RARE, 3.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_27.webp'),
+  createItem('ap25_28', 'Red Delicious Apple', 0.99, Rarity.COMMON, 88.45, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ap25_28.webp'),
 ];
 
 // PC COMPONENTS BOX
@@ -402,15 +417,15 @@ const RICH_CLUB_ITEMS: LootItem[] = [
 // POKER BOX
 const POKER_ITEMS: LootItem[] = [
   createItem('pk1', 'WSOP Main Event Package Ticket', 20000, Rarity.LEGENDARY, 0.005, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk1.webp'),
-  createItem('pk2', 'Monte Carlo $5000 Poker Chip', 5000, Rarity.LEGENDARY, 0.001, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk2.webp'),
-  createItem('pk3', 'Smythson Panama Poker Set', 4559.99, Rarity.LEGENDARY, 0.001, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk3.webp'),
-  createItem('pk4', 'Jacks Prestige Series XL 10 Seater Poker Table', 3830, Rarity.LEGENDARY, 0.002, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk4.webp'),
+  createItem('pk2', 'Monte Carlo $5000 Poker Chip', 5000, Rarity.LEGENDARY, 0.001, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk15.webp'),
+  createItem('pk3', 'Smythson Panama Poker Set', 4559.99, Rarity.LEGENDARY, 0.001, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk5.webp'),
+  createItem('pk4', 'Jacks Prestige Series XL 10 Seater Poker Table', 3830, Rarity.LEGENDARY, 0.002, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk7.webp'),
   createItem('pk5', 'Triton Complete Poker Room Set', 3200, Rarity.LEGENDARY, 0.002, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk5.webp'),
   createItem('pk6', 'Triton Poker Table Chair Combo', 2900, Rarity.LEGENDARY, 0.0025, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk6.webp'),
   createItem('pk7', 'Jacks Prestige Series 9 Seater Poker Table', 2550, Rarity.LEGENDARY, 0.0025, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk7.webp'),
   createItem('pk8', 'Triton 90" Premium Folding Poker Table', 1700, Rarity.LEGENDARY, 0.005, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk8.webp'),
   createItem('pk9', 'Hector Saxe x Brown Zebra Poker Set', 1179.99, Rarity.EPIC, 0.005, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk9.webp'),
-  createItem('pk10', 'Shuffletech EPT Playing Cards - Single Deck', 925, Rarity.EPIC, 0.005, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk10.webp'),
+  createItem('pk10', 'Shuffletech EPT Playing Cards - Single Deck', 925, Rarity.EPIC, 0.005, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk4.webp'),
   createItem('pk11', 'Jacks Heavy Duty Pedestal Table', 640, Rarity.EPIC, 0.02, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk11.webp'),
   createItem('pk12', 'Lucky Luciano $500 Poker Chip', 500, Rarity.EPIC, 0.01, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk12.webp'),
   createItem('pk13', 'Shinola Lacquered Wood Poker Set', 495, Rarity.EPIC, 0.02, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk13.webp'),
@@ -429,7 +444,7 @@ const POKER_ITEMS: LootItem[] = [
   createItem('pk26', 'Bicycle Prestige Playing Cards', 19, Rarity.COMMON, 4.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk26.webp'),
   createItem('pk27', 'Fournier EPT Playing Cards - Single Deck', 16, Rarity.COMMON, 5.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk27.webp'),
   createItem('pk28', 'Copag Texas Hold Em', 15, Rarity.COMMON, 5.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk28.webp'),
-  createItem('pk29', 'Jacks Pro Playing Cards - Black & Gold', 13.99, Rarity.COMMON, 5.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk29.webp'),
+  createItem('pk29', 'Jacks Pro Playing Cards - Black & Gold', 13.99, Rarity.COMMON, 5.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk14.webp'),
   createItem('pk30', 'Jacks Pro All In Triangle', 8.37, Rarity.COMMON, 7.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk30.webp'),
   createItem('pk31', 'Jacks Dealer Button', 3.50, Rarity.COMMON, 11.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk31.webp'),
   createItem('pk32', 'Jacks Signature Cut Card', 1.92, Rarity.COMMON, 12.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk32.webp'),
@@ -437,20 +452,20 @@ const POKER_ITEMS: LootItem[] = [
   createItem('pk34', 'Monte Carlo $0.50 Poker Chip', 0.50, Rarity.COMMON, 0, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/pk34.webp'),
 ];
 
-// GOLF BOX
+// GOLF BOX - $79.99 box, ~$48.00 EV (40% profitability)
 const GOLF_ITEMS: LootItem[] = [
-  createItem('gf1', 'Titleist TSR4 Driver', 649, Rarity.LEGENDARY, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf1.webp'),
-  createItem('gf2', 'TaylorMade Stealth 2 Plus Driver', 599, Rarity.LEGENDARY, 0.8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf2.webp'),
-  createItem('gf3', 'Callaway Paradym Ai Smoke Driver', 599, Rarity.LEGENDARY, 0.8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf3.webp'),
-  createItem('gf4', 'Titleist T200 Iron Set (4-PW)', 1599, Rarity.LEGENDARY, 0.3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf4.webp'),
-  createItem('gf5', 'Scotty Cameron Phantom X Putter', 499, Rarity.EPIC, 1.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf5.webp'),
-  createItem('gf6', 'Ping G430 Max Driver', 549, Rarity.EPIC, 1.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf6.webp'),
-  createItem('gf7', 'TaylorMade Spider Tour X Putter', 449, Rarity.EPIC, 2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf7.webp'),
-  createItem('gf8', 'Titleist Pro V1 Golf Balls (4 Dozen)', 219.96, Rarity.RARE, 8, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf8.webp'),
-  createItem('gf9', 'FootJoy Pro SL Carbon Golf Shoes', 199, Rarity.RARE, 10, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf9.webp'),
-  createItem('gf10', 'Callaway Chrome Soft Golf Balls (3 Dozen)', 164.97, Rarity.RARE, 12, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf10.webp'),
-  createItem('gf11', 'Bushnell Pro XE Rangefinder', 499, Rarity.RARE, 5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf11.webp'),
-  createItem('gf12', 'LootVibe Golf Tees Pack', 5, Rarity.COMMON, 57.92, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf12.webp'),
+  createItem('gf1', 'Titleist TSR4 Driver', 649, Rarity.LEGENDARY, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf1.webp'),
+  createItem('gf2', 'TaylorMade Stealth 2 Plus Driver', 599, Rarity.LEGENDARY, 0.15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf2.webp'),
+  createItem('gf3', 'Callaway Paradym Ai Smoke Driver', 599, Rarity.LEGENDARY, 0.15, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf3.webp'),
+  createItem('gf4', 'Titleist T200 Iron Set (4-PW)', 1599, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf4.webp'),
+  createItem('gf5', 'Scotty Cameron Phantom X Putter', 499, Rarity.EPIC, 0.3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf5.webp'),
+  createItem('gf6', 'Ping G430 Max Driver', 549, Rarity.EPIC, 0.25, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf6.webp'),
+  createItem('gf7', 'TaylorMade Spider Tour X Putter', 449, Rarity.EPIC, 0.4, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf7.webp'),
+  createItem('gf8', 'Titleist Pro V1 Golf Balls (4 Dozen)', 219.96, Rarity.RARE, 3.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf8.webp'),
+  createItem('gf9', 'FootJoy Pro SL Carbon Golf Shoes', 199, Rarity.RARE, 4.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf9.webp'),
+  createItem('gf10', 'Callaway Chrome Soft Golf Balls (3 Dozen)', 164.97, Rarity.RARE, 6, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf10.webp'),
+  createItem('gf11', 'Bushnell Pro XE Rangefinder', 499, Rarity.RARE, 2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf11.webp'),
+  createItem('gf12', 'LootVibe Golf Tees Pack', 5, Rarity.COMMON, 82.6, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/gf12.webp'),
 ];
 
 // BIG BALLER BOX
@@ -485,15 +500,15 @@ const BIG_BALLER_ITEMS: LootItem[] = [
 // MIXED SPORTS BOX
 const MIXED_SPORTS_ITEMS: LootItem[] = [
   createItem('ms1', 'Brunswick Gold Crown VI Pool Table', 12500, Rarity.LEGENDARY, 0.01, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms1.webp'),
-  createItem('ms2', 'Michael Jordan Signed Basketball UDA', 8500, Rarity.LEGENDARY, 0.02, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms2.webp'),
-  createItem('ms3', 'Olhausen Grand Champion Pool Table', 7800, Rarity.LEGENDARY, 0.03, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms3.webp'),
-  createItem('ms4', 'LeBron James Signed Jersey Fanatics', 4200, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms4.webp'),
-  createItem('ms5', 'Tom Brady Signed Football PSA/DNA', 3500, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms5.webp'),
+  createItem('ms2', 'Michael Jordan Signed Basketball UDA', 8500, Rarity.LEGENDARY, 0.02, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/bk1.webp'),
+  createItem('ms3', 'Olhausen Grand Champion Pool Table', 7800, Rarity.LEGENDARY, 0.03, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms1.webp'),
+  createItem('ms4', 'LeBron James Signed Jersey Fanatics', 4200, Rarity.LEGENDARY, 0.05, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/bk2.webp'),
+  createItem('ms5', 'Tom Brady Signed Football PSA/DNA', 3500, Rarity.LEGENDARY, 0.08, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/fb10.webp'),
   createItem('ms6', 'Spalding The Beast Portable Basketball Hoop', 1599, Rarity.EPIC, 0.2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms6.webp'),
   createItem('ms7', 'Patrick Mahomes Signed Mini Helmet', 1200, Rarity.EPIC, 0.3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms7.webp'),
   createItem('ms8', 'Kobe Bryant Signed Photo PSA/DNA', 2800, Rarity.EPIC, 0.1, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms8.webp'),
   createItem('ms9', 'Wilson Evolution Basketball (Official)', 79.99, Rarity.EPIC, 2, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms9.webp'),
-  createItem('ms10', 'Predator Throne Pool Cue', 899, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms10.webp'),
+  createItem('ms10', 'Predator Throne Pool Cue', 899, Rarity.EPIC, 0.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms14.webp'),
   createItem('ms11', 'NFL Official Game Football Wilson', 149.99, Rarity.RARE, 5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms11.webp'),
   createItem('ms12', 'Aramith Tournament Pool Ball Set', 299, Rarity.RARE, 3, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms12.webp'),
   createItem('ms13', 'Lifetime 90" Portable Basketball Hoop', 399, Rarity.RARE, 2.5, 'https://cbjdasfnwzizfphnwxfd.supabase.co/storage/v1/object/public/game-assets/items/ms13.webp'),

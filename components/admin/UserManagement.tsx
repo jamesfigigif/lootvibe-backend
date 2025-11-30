@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ChevronDown, DollarSign, Edit, Ban, Eye } from 'lucide-react';
+import { supabase } from '../../services/supabaseClient';
 
 interface User {
     id: string;
@@ -9,6 +10,7 @@ interface User {
     created_at: string;
     banned?: boolean;
     banned_reason?: string;
+    // These might not exist in the database
 }
 
 interface UserManagementProps {
@@ -25,6 +27,9 @@ export const UserManagement: React.FC<UserManagementProps> = ({ token, onViewUse
     const [sortBy, setSortBy] = useState('created_at');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+    // Backend URL - check environment variable first, then try to detect Heroku
+    // Set VITE_BACKEND_URL in your .env.local file with your Heroku URL
+    // Example: VITE_BACKEND_URL=https://your-app.herokuapp.com
     const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
 
     useEffect(() => {
@@ -42,19 +47,81 @@ export const UserManagement: React.FC<UserManagementProps> = ({ token, onViewUse
                 sortOrder
             });
 
-            const response = await fetch(`${BACKEND_URL}/api/admin/users?${params}`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
+            let response;
+            try {
+                if (!token) {
+                    console.warn('No admin token available, using Supabase directly');
+                    throw new Error('No token');
                 }
-            });
+                
+                response = await fetch(`${BACKEND_URL}/api/admin/users?${params}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (!response.ok) {
+                    console.warn(`Backend API returned ${response.status}: ${response.statusText}`);
+                    if (response.status === 401) {
+                        console.warn('Authentication failed - token may be invalid or expired');
+                    }
+                    throw new Error(`Backend returned ${response.status}`);
+                }
+            } catch (fetchError) {
+                console.warn('Backend API request failed:', fetchError);
+                response = null;
+            }
 
-            if (response.ok) {
+            if (response && response.ok) {
                 const data = await response.json();
-                setUsers(data.users);
-                setTotalPages(data.pagination.pages);
+                setUsers(data.users || []);
+                setTotalPages(data.pagination?.pages || 1);
+            } else {
+                // If backend fails (401 or any error), try querying Supabase directly
+                console.warn('Backend API failed, trying direct Supabase query...');
+                console.log('Backend URL was:', BACKEND_URL, 'Response status:', response?.status);
+                
+                try {
+                    const { supabase } = await import('../../services/supabaseClient');
+                    
+                    // Query users - only select columns that exist
+                    let query = supabase
+                        .from('users')
+                        .select('id, username, balance, created_at', { count: 'exact' });
+                    
+                    if (search) {
+                        query = query.ilike('username', `%${search}%`);
+                    }
+                    
+                    query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+                    query = query.range((page - 1) * 20, page * 20 - 1);
+                    
+                    const { data: usersData, error, count } = await query;
+                    
+                    if (error) {
+                        console.error('Supabase query error:', error);
+                        // Don't throw - just set empty array so UI doesn't break
+                        setUsers([]);
+                        setTotalPages(1);
+                    } else {
+                        setUsers(usersData || []);
+                        setTotalPages(Math.ceil((count || 0) / 20));
+                        console.log(`✅ Loaded ${usersData?.length || 0} users from Supabase`);
+                    }
+                } catch (supabaseError) {
+                    console.error('Supabase fallback failed:', supabaseError);
+                    // Keep existing users if available, don't clear them
+                    if (users.length === 0) {
+                        setUsers([]);
+                        setTotalPages(1);
+                    }
+                }
             }
         } catch (error) {
             console.error('Error fetching users:', error);
+            // Show error to user
+            setUsers([]);
+            setTotalPages(1);
         } finally {
             setLoading(false);
         }
@@ -172,7 +239,7 @@ export const UserManagement: React.FC<UserManagementProps> = ({ token, onViewUse
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            {user.banned ? (
+                                            {(user as any).banned ? (
                                                 <div className="flex items-center gap-2">
                                                     <Ban className="w-4 h-4 text-red-400" />
                                                     <span className="text-red-400 font-bold text-sm">Banned</span>

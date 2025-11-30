@@ -17,6 +17,7 @@ export interface LootItem {
   value: number; // In USD/Credits
   rarity: Rarity;
   odds: number; // Percentage 0-100
+  shippingStatus?: 'PROCESSING' | 'SHIPPED' | 'DELIVERED'; // Status for items being shipped
 }
 
 export interface LootBox {
@@ -63,12 +64,14 @@ export interface User {
   nonce?: number;
   serverSeedHash?: string;
   freeBoxClaimed?: boolean;
+  totalWagered?: number; // Total amount spent on boxes
+  totalProfit?: number; // (Total item value won) - (Total spent)
 }
 
 export interface Transaction {
   id: string;
   userId: string;
-  type: 'DEPOSIT' | 'WITHDRAWAL' | 'BET' | 'WIN' | 'PURCHASE';
+  type: 'DEPOSIT' | 'WITHDRAWAL' | 'BET' | 'WIN' | 'PURCHASE' | 'SHIPPING';
   amount: number;
   timestamp: number;
   description: string;
