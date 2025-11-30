@@ -25,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
   const [displayedBalance, setDisplayedBalance] = useState(0);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileBalanceOpen, setIsMobileBalanceOpen] = useState(false);
 
   // Animate balance changes
   React.useEffect(() => {
@@ -183,14 +184,42 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
         <div className="flex items-center gap-2 md:gap-4 z-50">
           {user ? (
             <>
-              {/* Mobile Wallet Display */}
-              <button
-                onClick={onDeposit}
-                className="flex md:hidden items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:border-emerald-500/50 transition-all group"
-              >
-                <Wallet className="w-4 h-4 text-emerald-400" />
-                <span className="font-mono font-bold text-emerald-400 text-sm">${displayedBalance.toFixed(2)}</span>
-              </button>
+              {/* Mobile Wallet Display with Dropdown */}
+              <div className="relative md:hidden group">
+                <button
+                  onClick={() => setIsMobileBalanceOpen(!isMobileBalanceOpen)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-3 py-1.5 rounded-lg hover:border-emerald-500/50 transition-all"
+                >
+                  <Wallet className="w-4 h-4 text-emerald-400" />
+                  <span className="font-mono font-bold text-emerald-400 text-sm">${displayedBalance.toFixed(2)}</span>
+                </button>
+
+                {/* Mobile Balance Dropdown */}
+                {isMobileBalanceOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-40 bg-[#131b2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+                    <button
+                      onClick={() => {
+                        onDeposit();
+                        setIsMobileBalanceOpen(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-3 border-b border-white/5"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      <span className="font-medium">Deposit</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        onWithdraw();
+                        setIsMobileBalanceOpen(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-purple-400 hover:bg-purple-500/10 transition-colors flex items-center gap-3"
+                    >
+                      <Wallet className="w-4 h-4" />
+                      <span className="font-medium">Withdraw</span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Desktop Wallet Display */}
               <button
