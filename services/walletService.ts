@@ -1,9 +1,10 @@
 import { Transaction, User } from '../types';
 import { supabase } from './supabaseClient';
 import { generateClientSeed } from './provablyFairService';
+import { createClient } from '@supabase/supabase-js';
 
 // Get or create user
-export const getUser = async (userId: string = 'user-1'): Promise<User> => {
+export const getUser = async (userId: string = 'user-1', clerkToken?: string): Promise<User> => {
     try {
         // Try to fetch existing user
         const { data: existingUser, error: fetchError } = await supabase
@@ -66,24 +67,50 @@ export const getUser = async (userId: string = 'user-1'): Promise<User> => {
         };
 
         try {
-            const { error: insertError } = await supabase
+            // Check if user exists again before inserting (race condition check)
+            const { data: checkUser } = await supabase
                 .from('users')
-                .insert({
-                    id: newUser.id,
-                    username: newUser.username,
-                    balance: newUser.balance,
-                    avatar: newUser.avatar,
-                    client_seed: newUser.clientSeed,
-                    nonce: newUser.nonce,
-                    free_box_claimed: false,
-                });
+                .select('id')
+                .eq('id', userId)
+                .single();
 
-            if (insertError) {
-                console.error('❌ Error creating user in database:', insertError);
-                console.error('Details:', JSON.stringify(insertError, null, 2));
-                // Return user anyway for offline mode
-            } else {
-                console.log('✅ User created successfully in database:', newUser.id);
+            if (!checkUser) {
+                // Create authenticated client if we have a Clerk token
+                let clientToUse = supabase;
+                if (clerkToken) {
+                    const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://cbjdasfnwzizfphnwxfd.supabase.co';
+                    const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
+
+                    clientToUse = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                        global: {
+                            headers: {
+                                Authorization: `Bearer ${clerkToken}`
+                            }
+                        }
+                    });
+                }
+
+                const { error: insertError } = await clientToUse
+                    .from('users')
+                    .insert({
+                        id: newUser.id,
+                        username: newUser.username,
+                        balance: newUser.balance,
+                        avatar: newUser.avatar,
+                        client_seed: newUser.clientSeed,
+                        nonce: newUser.nonce,
+                        free_box_claimed: false,
+                    });
+
+                if (insertError) {
+                    // Ignore 409 conflict if another request created it
+                    if (insertError.code !== '23505') {
+                        console.error('❌ Error creating user in database:', insertError);
+                        console.error('Details:', JSON.stringify(insertError, null, 2));
+                    }
+                } else {
+                    console.log('✅ User created successfully in database:', newUser.id);
+                }
             }
         } catch (dbError) {
             console.error('❌ Database error during user creation:', dbError);

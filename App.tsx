@@ -71,7 +71,7 @@ export default function App() {
 
                 // Combine and transform battles
                 const allBattles = [...(activeBattles || []), ...(finishedBattles || [])];
-                
+
                 if (allBattles.length > 0) {
                     // Transform database battles to Battle type
                     const transformedBattles: Battle[] = allBattles.map((b: any) => ({
@@ -100,7 +100,7 @@ export default function App() {
         };
 
         fetchBattles();
-        
+
         // Refresh battles every 5 seconds
         const interval = setInterval(fetchBattles, 5000);
         return () => clearInterval(interval);
@@ -249,6 +249,8 @@ export default function App() {
         fetchBoxes();
     }, []);
 
+    const clerk = useClerk();
+
     // Sync user balance
     useEffect(() => {
         if (user) {
@@ -259,7 +261,7 @@ export default function App() {
             const interval = setInterval(syncUser, 2000);
             return () => clearInterval(interval);
         }
-    }, [user?.id]);
+    }, [user?.id, clerk.session]);
 
     // Check for referral code and routes in URL
     useEffect(() => {
@@ -296,7 +298,7 @@ export default function App() {
     // Initialize user from Clerk
     useEffect(() => {
         if (!isLoaded) return; // Wait for Clerk to load
-        
+
         const initUser = async () => {
             if (isSignedIn && clerkUser) {
                 // Always re-initialize if Clerk says user is signed in but app user is missing or different
@@ -316,14 +318,12 @@ export default function App() {
                 }
             }
         };
-        
+
         initUser();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isLoaded, isSignedIn, clerkUser?.id]); // Only depend on Clerk state, not user state
 
     // --- Handlers ---
-
-    const clerk = useClerk();
 
     const handleLogin = (fromWelcomeSpin = false) => {
         // Don't open sign-in if user is already signed in
@@ -331,13 +331,29 @@ export default function App() {
             console.log('User is already signed in, skipping login modal');
             return;
         }
-        setIsWelcomeSpinPending(fromWelcomeSpin);
+        if (fromWelcomeSpin) {
+            console.log('🎁 Setting pendingWelcomeSpin flag in localStorage');
+            localStorage.setItem('pendingWelcomeSpin', 'true');
+            setIsWelcomeSpinPending(true);
+        }
         clerk.openSignIn();
     };
 
     const confirmLogin = async () => {
-        if (!clerkUser) return;
-        const loggedInUser = await getUser(clerkUser.id);
+        console.log('🔐 confirmLogin called');
+        if (!clerkUser) {
+            console.log('❌ No clerkUser, returning');
+            return;
+        }
+
+        console.log('👤 Fetching user from database:', clerkUser.id);
+
+        // Get Clerk token for authenticated user creation
+        const clerkToken = await getToken();
+        console.log('🔑 Got Clerk token for user creation:', !!clerkToken);
+
+        const loggedInUser = await getUser(clerkUser.id, clerkToken || undefined);
+        console.log('✅ User fetched:', loggedInUser.username, 'freeBoxClaimed:', loggedInUser.freeBoxClaimed);
 
         // Check for pending referral
         const pendingReferral = localStorage.getItem('referralCode');
@@ -357,57 +373,123 @@ export default function App() {
         setShowAuth(false);
 
         // Check if this login originated from "Claim Free Box" to trigger the spin
-        if (isWelcomeSpinPending) {
-            setTimeout(() => {
-                // Trigger welcome spin box
-                const btcBox = INITIAL_BOXES.find(b => b.id === 'btc_gift');
-                if (btcBox) {
-                    setSelectedBox(btcBox);
-                    // Rigged spin for welcome bonus
-                    handleWelcomeSpin(btcBox);
-                    setIsWelcomeSpinPending(false); // Reset pending state
-                }
-            }, 500);
+        // Check both local state (for direct login) and localStorage (for redirect login)
+        const localStorageFlag = localStorage.getItem('pendingWelcomeSpin');
+        const isPending = isWelcomeSpinPending || localStorageFlag === 'true';
+
+        console.log('🎁 Checking Free Box trigger:', {
+            isWelcomeSpinPending,
+            localStorageFlag,
+            isPending,
+            freeBoxClaimed: loggedInUser.freeBoxClaimed
+        });
+
+        if (isPending) {
+            if (loggedInUser.freeBoxClaimed) {
+                console.log('⚠️ User already claimed free box, skipping spin');
+                setIsWelcomeSpinPending(false);
+                localStorage.removeItem('pendingWelcomeSpin');
+            } else {
+                console.log('🎰 Triggering Free Box spin in 500ms...');
+                setTimeout(() => {
+                    // Trigger welcome spin box
+                    const welcomeBox = INITIAL_BOXES.find(b => b.id === 'welcome_gift');
+                    console.log('📦 Welcome box found:', welcomeBox?.name);
+                    if (welcomeBox) {
+                        setSelectedBox(welcomeBox);
+                        // Rigged spin for welcome bonus
+                        handleWelcomeSpin(welcomeBox);
+                        setIsWelcomeSpinPending(false); // Reset pending state
+                        localStorage.removeItem('pendingWelcomeSpin');
+                        console.log('✅ Free Box spin triggered!');
+                    } else {
+                        console.error('❌ Welcome box not found in INITIAL_BOXES');
+                    }
+                }, 500);
+            }
+        } else {
+            console.log('ℹ️ No pending welcome spin');
         }
     };
 
     const handleWelcomeSpin = async (box: LootBox) => {
-        if (!user) return;
+        if (!user || user.freeBoxClaimed) {
+            console.log('❌ Cannot claim free box:', { hasUser: !!user, freeBoxClaimed: user?.freeBoxClaimed });
+            return;
+        }
 
-        // Guaranteed $10 win (Satoshi Stack)
-        const winningItem = box.items.find(i => i.value === 10) || box.items[0];
+        console.log('🎁 Claiming free box via Edge Function...');
 
-        setRollResult({
-            item: winningItem,
-            serverSeed: 'welcome-bonus-seed',
-            serverSeedHash: 'hashed-welcome-seed',
-            nonce: 0,
-            randomValue: 0.5,
-            block: { height: 840000, hash: '0000000000000000000mockhash' }
-        });
-        setView({ page: 'OPENING' });
-        setIsOpening(true);
+        try {
+            // Get Clerk session token
+            const token = await clerk.session?.getToken();
+            if (!token) {
+                console.error('❌ No Clerk token available');
+                alert('Authentication error. Please sign in again.');
+                return;
+            }
 
-        // Automatically add $10 to balance (no item choice)
-        setTimeout(async () => {
-            if (!user) return;
+            // Show opening animation
+            setView({ page: 'OPENING' });
+            setIsOpening(true);
 
-            // Add $10 to balance
-            const updatedUser = {
-                ...user,
-                balance: user.balance + 10,
-                freeBoxClaimed: true
-            };
-            setUser(updatedUser);
-            await updateUserState(user.id, { balance: updatedUser.balance });
+            // Call secure Edge Function
+            const { data, error } = await supabase.functions.invoke('claim-free-box', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
 
-            // Mark free box as claimed
-            await markFreeBoxClaimed(user.id);
+            if (error) {
+                console.error('❌ Edge Function error:', error);
 
+                // Check if already claimed
+                if (error.message?.includes('already claimed')) {
+                    alert('You have already claimed your free box!');
+                    setIsOpening(false);
+                    setView({ page: 'HOME' });
+                    return;
+                }
+
+                throw error;
+            }
+
+            console.log('✅ Free box claimed successfully:', data);
+
+            // Set the roll result from the server
+            setRollResult(data.rollResult);
+
+            // Wait for animation
+            setTimeout(async () => {
+                if (!user) return;
+
+                // Update user state with new balance
+                const updatedUser = {
+                    ...user,
+                    balance: data.newBalance,
+                    freeBoxClaimed: true
+                };
+                setUser(updatedUser);
+
+                setIsOpening(false);
+                setView({ page: 'HOME' });
+                setSelectedBox(null);
+
+                console.log('🎉 Free box flow complete!');
+            }, 3000);
+
+        } catch (error) {
+            console.error('❌ Error claiming free box:', error);
+            alert('Failed to claim free box. Please try again.');
             setIsOpening(false);
             setView({ page: 'HOME' });
-            setSelectedBox(null);
-        }, 3000);
+        }
+    };
+
+    const handleLogout = async () => {
+        await clerk.signOut();
+        setUser(null);
+        setView({ page: 'HOME' });
     };
 
     const handleOpenBox = async () => {
@@ -1285,7 +1367,7 @@ export default function App() {
             <Navbar
                 user={user}
                 onLogin={() => setShowAuth(true)}
-                onLogout={() => setUser(null)}
+                onLogout={handleLogout}
                 onDeposit={() => setShowDeposit(true)}
                 onWithdraw={() => setShowWithdraw(true)}
                 onHome={() => setView({ page: 'HOME' })}
