@@ -78,16 +78,24 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string): P
                 // Create authenticated client if we have a Clerk token
                 let clientToUse = supabase;
                 if (clerkToken) {
+                    console.log('🔑 getUser received clerkToken:', clerkToken.substring(0, 20) + '...');
                     const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://hpflcuyxmwzrknxjgavd.supabase.co';
                     const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
                     clientToUse = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                        auth: {
+                            persistSession: false,
+                            autoRefreshToken: false,
+                            detectSessionInUrl: false
+                        },
                         global: {
                             headers: {
                                 Authorization: `Bearer ${clerkToken}`
                             }
                         }
                     });
+                } else {
+                    console.log('⚠️ getUser received NO clerkToken');
                 }
 
                 const { error: insertError } = await clientToUse
