@@ -78,7 +78,7 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string): P
                 // Create authenticated client if we have a Clerk token
                 let clientToUse = supabase;
                 if (clerkToken) {
-                    const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://cbjdasfnwzizfphnwxfd.supabase.co';
+                    const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://hpflcuyxmwzrknxjgavd.supabase.co';
                     const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
 
                     clientToUse = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {

@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Get Clerk domain from environment variable (fallback to dev for now)
-const CLERK_DOMAIN = Deno.env.get('CLERK_DOMAIN') || 'driven-quetzal-77.clerk.accounts.dev';
+const CLERK_DOMAIN = Deno.env.get('CLERK_DOMAIN') || 'clerk.lootvibe.com';
 const CLERK_JWKS_URL = new URL(`https://${CLERK_DOMAIN}/.well-known/jwks.json`);
 const JWKS = createRemoteJWKSet(CLERK_JWKS_URL);
 
