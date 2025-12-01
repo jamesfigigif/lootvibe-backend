@@ -355,6 +355,22 @@ export default function App() {
         const loggedInUser = await getUser(clerkUser.id, clerkToken || undefined);
         console.log('✅ User fetched:', loggedInUser.username, 'freeBoxClaimed:', loggedInUser.freeBoxClaimed);
 
+        // DEBUG: Inspect JWT claims by decoding the token
+        if (clerkToken) {
+            try {
+                // Decode JWT (base64 decode the payload part)
+                const parts = clerkToken.split('.');
+                if (parts.length === 3) {
+                    const payload = JSON.parse(atob(parts[1]));
+                    console.log('🔍 JWT Inspection (Clerk Token):', payload);
+                } else {
+                    console.log('🔍 JWT Inspection: Invalid token format');
+                }
+            } catch (e) {
+                console.log('🔍 JWT Inspection Error:', e);
+            }
+        }
+
         // Check for pending referral
         const pendingReferral = localStorage.getItem('referralCode');
         if (pendingReferral) {
