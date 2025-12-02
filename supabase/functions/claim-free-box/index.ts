@@ -83,8 +83,68 @@ serve(async (req) => {
             });
         }
 
-        // 5. Award the $10 voucher and mark as claimed (atomic transaction)
-        const newBalance = parseFloat(user.balance) + 10;
+        // 5. Define Loot Table with "Impossible" Odds
+        // The $10 Voucher has 99.9% chance. High value items share the remaining 0.1%.
+        const LOOT_TABLE = [
+            {
+                id: 'pc12',
+                name: 'LootVibe $10 Voucher',
+                value: 10,
+                rarity: 'COMMON',
+                image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/pc12.webp',
+                odds: 99.9
+            },
+            {
+                id: 'p1',
+                name: 'PSA 10 Charizard Base Set 1st Edition',
+                value: 250000,
+                rarity: 'LEGENDARY',
+                image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/p1.webp',
+                odds: 0.0025
+            },
+            {
+                id: 'rtx1',
+                name: 'Gigabyte Nvidia GeForce RTX 5090 Aorus Master',
+                value: 2970,
+                rarity: 'LEGENDARY',
+                image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/rtx1.webp',
+                odds: 0.0025
+            },
+            {
+                id: 'son1',
+                name: 'Supreme Meissen Hand-Painted Porcelain Cupid',
+                value: 6393.6,
+                rarity: 'LEGENDARY',
+                image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/son1.webp',
+                odds: 0.0025
+            },
+            {
+                id: 'cz1',
+                name: 'Charizard ex 151 SIR PSA 10',
+                value: 200,
+                rarity: 'LEGENDARY',
+                image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/cz1.webp',
+                odds: 0.0925
+            }
+        ];
+
+        // 6. Generate Provably Fair Outcome
+        // In a real production app, you'd use a server seed + client seed + nonce.
+        // For this welcome box, we generate a random float 0-1.
+        const randomValue = Math.random() * 100; // 0 to 100
+        let cumulativeOdds = 0;
+        let winningItem = LOOT_TABLE[0]; // Default to voucher
+
+        for (const item of LOOT_TABLE) {
+            cumulativeOdds += item.odds;
+            if (randomValue <= cumulativeOdds) {
+                winningItem = item;
+                break;
+            }
+        }
+
+        // 7. Award the item and mark as claimed
+        const newBalance = parseFloat(user.balance) + winningItem.value;
 
         const { error: updateError } = await supabase
             .from('users')
@@ -93,7 +153,7 @@ serve(async (req) => {
                 free_box_claimed: true
             })
             .eq('id', clerkUserId)
-            .eq('free_box_claimed', false); // Ensure it hasn't been claimed in a race condition
+            .eq('free_box_claimed', false);
 
         if (updateError) {
             console.error('Error updating user:', updateError);
@@ -102,15 +162,6 @@ serve(async (req) => {
                 headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
             });
         }
-
-        // 6. Return success with the winning item details
-        const winningItem = {
-            id: 'pc12',
-            name: 'LootVibe $10 Voucher',
-            value: 10,
-            rarity: 'COMMON',
-            image: 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/pc12.webp'
-        };
 
         return new Response(JSON.stringify({
             success: true,
@@ -121,7 +172,7 @@ serve(async (req) => {
                 serverSeed: 'welcome-bonus-seed',
                 serverSeedHash: 'hashed-welcome-seed',
                 nonce: 0,
-                randomValue: 0.5,
+                randomValue: randomValue / 100, // Normalize to 0-1 for frontend display
                 block: { height: 840000, hash: '0000000000000000000mockhash' }
             }
         }), {
