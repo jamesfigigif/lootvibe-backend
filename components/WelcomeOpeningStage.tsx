@@ -55,6 +55,16 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
         }, 100);
     };
 
+    // Auto-advance from winner screen after 3 seconds
+    useEffect(() => {
+        if (step === 'WINNER') {
+            const timer = setTimeout(() => {
+                onComplete();
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [step, onComplete]);
+
     return (
         <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-center overflow-hidden">
             {/* Background Effects */}
@@ -184,6 +194,8 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                     >
                         {rollResult.item.value === 10 ? 'EXPLORE BOXES' : 'START PLAYING'}
                     </button>
+
+                    <p className="text-slate-500 text-sm mt-4">Auto-closing in 3 seconds...</p>
                 </div>
             )}
         </div>

@@ -457,6 +457,14 @@ export default function App() {
 
             console.log('✅ Free box claimed successfully:', data);
 
+            // CRITICAL: Update user state IMMEDIATELY to prevent re-claiming
+            const updatedUser = {
+                ...user,
+                balance: data.newBalance,
+                freeBoxClaimed: true
+            };
+            setUser(updatedUser);
+
             // --- RIGGED REEL GENERATION FOR FREE BOX ---
             // We want to tease high value items right before the winner (Index 60)
             const WINNER_INDEX = 60;
@@ -483,9 +491,9 @@ export default function App() {
                     const nextItem = box.items[Math.floor(Math.random() * box.items.length)];
                     reelItems.push({ ...nextItem, id: `next-${nextItem.id}-${i}` });
                 } else {
-                    // Random filler items
+                    // Random items from the box
                     const randomItem = box.items[Math.floor(Math.random() * box.items.length)];
-                    reelItems.push({ ...randomItem, id: `filler-${randomItem.id}-${i}` });
+                    reelItems.push({ ...randomItem, id: `${randomItem.id}-${i}` });
                 }
             }
 
@@ -497,15 +505,7 @@ export default function App() {
 
             // Wait for animation
             setTimeout(async () => {
-                if (!user) return;
-
-                // Update user state with new balance
-                const updatedUser = {
-                    ...user,
-                    balance: data.newBalance,
-                    freeBoxClaimed: true
-                };
-                setUser(updatedUser);
+                if (!user) return; // User state is already updated, this check is mostly for safety
 
                 setIsOpening(false);
                 setView({ page: 'HOME' });
@@ -1698,7 +1698,13 @@ export default function App() {
                             <WelcomeOpeningStage
                                 box={selectedBox}
                                 winner={rollResult?.item || null}
-                                onComplete={handleAnimationComplete}
+                                onComplete={() => {
+                                    // Welcome box auto-credits balance, just close and go home
+                                    setIsOpening(false);
+                                    setRollResult(null);
+                                    setSelectedBox(null);
+                                    setView({ page: 'HOME' });
+                                }}
                                 rollResult={rollResult}
                             />
                         ) : (
