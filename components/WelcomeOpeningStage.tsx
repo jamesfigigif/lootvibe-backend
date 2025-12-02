@@ -165,14 +165,24 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                             className="w-48 h-48 object-contain mx-auto mb-6 drop-shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-float"
                         />
                         <h3 className="text-2xl font-bold text-white mb-2">{rollResult.item.name}</h3>
-                        <p className="text-slate-400">Added to your balance instantly.</p>
+                        <p className="text-slate-400 mb-4">
+                            {rollResult.item.value === 10
+                                ? "Your balance has been credited instantly!"
+                                : "Added to your balance instantly."}
+                        </p>
+                        {rollResult.item.value === 10 && (
+                            <p className="text-sm text-slate-500 bg-white/5 p-4 rounded-lg border border-white/10">
+                                💡 <span className="text-white font-bold">Use your ${rollResult.item.value} credit</span> to spin any box on the site.
+                                Every spin is provably fair and verified by the blockchain!
+                            </p>
+                        )}
                     </div>
 
                     <button
                         onClick={onComplete}
                         className="w-full bg-white text-black font-bold py-4 rounded-xl text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.2)]"
                     >
-                        START PLAYING
+                        {rollResult.item.value === 10 ? 'EXPLORE BOXES' : 'START PLAYING'}
                     </button>
                 </div>
             )}
