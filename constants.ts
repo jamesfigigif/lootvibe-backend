@@ -321,16 +321,23 @@ const RTX_1_PERCENT_ITEMS: LootItem[] = [
   createItem('rtx11', 'LootVibe €0.02 Voucher', 0.02, Rarity.COMMON, 99, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/rtx11.webp'),
 ];
 
-// FREE BOX ITEMS (Rigged for Welcome Bonus)
+// FREE BOX ITEMS (Provably Fair with Extreme Odds)
 const FREE_BOX_ITEMS: LootItem[] = [
-  // Tease items (High Value, High Visual Odds for Reel)
-  createItem('p1', 'PSA 10 Charizard Base Set 1st Edition', 250000, Rarity.LEGENDARY, 20, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/p1.webp'),
-  createItem('rtx1', 'Gigabyte Nvidia GeForce RTX 5090 Aorus Master', 2970, Rarity.LEGENDARY, 20, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/rtx1.webp'),
-  createItem('son1', 'Supreme Meissen Hand-Painted Porcelain Cupid', 6393.6, Rarity.LEGENDARY, 20, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/son1.webp'),
-  createItem('cz1', 'Charizard ex 151 SIR PSA 10', 200, Rarity.LEGENDARY, 20, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/cz1.webp'),
+  // THE GUARANTEED WIN - 99.999% chance
+  createItem('pc12', 'LootVibe $10 Voucher', 10, Rarity.COMMON, 99.999, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/pc12.webp'),
 
-  // The Guaranteed Win (Hidden low odds but forced by logic)
-  createItem('pc12', 'LootVibe $10 Voucher', 10, Rarity.COMMON, 0.1, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/pc12.webp'),
+  // LEGENDARY PRIZES - Nearly Impossible (0.00025% each = 1 in 400,000)
+  createItem('p1', 'PSA 10 Charizard Base Set 1st Edition', 250000, Rarity.LEGENDARY, 0.00025, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/p1.webp'),
+  createItem('rtx1', 'Gigabyte Nvidia GeForce RTX 5090 Aorus Master', 2970, Rarity.LEGENDARY, 0.00025, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/rtx1.webp'),
+  createItem('son1', 'Supreme Meissen Hand-Painted Porcelain Cupid', 6393.6, Rarity.LEGENDARY, 0.00025, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/son1.webp'),
+
+  // MEDIUM PRIZES - Extremely Rare (0.0001% each = 1 in 1,000,000)
+  createItem('cz1', 'Charizard ex 151 SIR PSA 10', 200, Rarity.EPIC, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/cz1.webp'),
+  createItem('ap5', 'Apple AirPods Max', 549, Rarity.EPIC, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/ap5.webp'),
+  createItem('ap6', 'Apple iPad Pro 12.9" M2', 1099, Rarity.EPIC, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/ap6.webp'),
+  createItem('rtx5', 'Nvidia GeForce RTX 4080 Super', 999, Rarity.EPIC, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/rtx5.webp'),
+  createItem('sam3', 'Samsung Galaxy S24 Ultra', 1199, Rarity.EPIC, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/sam3.webp'),
+  createItem('sw3', 'Nintendo Switch OLED', 349, Rarity.RARE, 0.0001, 'https://hpflcuyxmwzrknxjgavd.supabase.co/storage/v1/object/public/game-assets/items/sw3.webp'),
 ];
 
 // SUPREME OR NOT BOX
