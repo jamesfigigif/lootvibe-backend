@@ -9,13 +9,16 @@ interface WelcomeOpeningStageProps {
     onComplete: () => void;
     rollResult: {
         item: LootItem;
-        block: { height: number; hash: string };
+        serverSeed: string;
+        serverSeedHash: string;
+        nonce: number;
         randomValue: number;
         preGeneratedReel?: LootItem[];
     } | null;
+    clientSeed?: string;
 }
 
-export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, winner, onComplete, rollResult }) => {
+export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, winner, onComplete, rollResult, clientSeed }) => {
     const [step, setStep] = useState<'INTRO' | 'SPINNING' | 'WINNER'>('INTRO');
     const [reelItems, setReelItems] = useState<LootItem[]>([]);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -55,15 +58,15 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
         }, 100);
     };
 
-    // Auto-advance from winner screen after 3 seconds
-    useEffect(() => {
-        if (step === 'WINNER') {
-            const timer = setTimeout(() => {
-                onComplete();
-            }, 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [step, onComplete]);
+    // Auto-advance removed to allow verification
+    // useEffect(() => {
+    //     if (step === 'WINNER') {
+    //         const timer = setTimeout(() => {
+    //             onComplete();
+    //         }, 3000);
+    //         return () => clearTimeout(timer);
+    //     }
+    // }, [step, onComplete]);
 
     return (
         <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-center overflow-hidden">
@@ -188,16 +191,111 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                         )}
                     </div>
 
-                    <button
-                        onClick={onComplete}
-                        className="w-full bg-white text-black font-bold py-4 rounded-xl text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.2)]"
-                    >
-                        {rollResult.item.value === 10 ? 'EXPLORE BOXES' : 'START PLAYING'}
-                    </button>
+                    <div className="flex flex-col gap-3">
+                        <button
+                            onClick={onComplete}
+                            className="w-full bg-white text-black font-bold py-4 rounded-xl text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.2)]"
+                        >
+                            {rollResult.item.value === 10 ? 'EXPLORE BOXES' : 'START PLAYING'}
+                        </button>
 
-                    <p className="text-slate-500 text-sm mt-4">Auto-closing in 3 seconds...</p>
+                        <button
+                            onClick={() => setStep('VERIFY')}
+                            className="w-full bg-[#131b2e] text-slate-400 hover:text-white font-bold py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Shield className="w-4 h-4" /> VERIFY FAIRNESS
+                        </button>
+                    </div>
                 </div>
             )}
+
+            {/* VERIFY STEP */}
+            {step === 'VERIFY' && rollResult && (
+                <div className="relative z-10 max-w-2xl w-full px-6 animate-fade-in">
+                    <div className="bg-[#131b2e] rounded-3xl p-8 border border-white/10 shadow-2xl">
+                        <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
+                            <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                                <Shield className="w-6 h-6 text-emerald-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-2xl font-bold text-white">Provably Fair Verification</h2>
+                                <p className="text-slate-400 text-sm">Verify this roll was not manipulated.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 mb-8">
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Shield className="w-4 h-4 text-emerald-400" />
+                                    <div className="text-xs text-emerald-400 font-bold uppercase">Server Seed (Revealed)</div>
+                                </div>
+                                <div className="font-mono text-xs text-slate-300 break-all">{rollResult.serverSeed}</div>
+                                <div className="text-xs text-slate-500 mt-2">This was hidden until after your roll to ensure fairness.</div>
+                            </div>
+
+                            <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
+                                <div className="text-xs text-slate-500 uppercase font-bold mb-1">Server Seed Hash (Pre-Committed)</div>
+                                <div className="font-mono text-xs text-slate-300 break-all">{rollResult.serverSeedHash}</div>
+                                <div className="text-xs text-slate-500 mt-2">SHA-256 hash shown before the roll.</div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
+                                    <div className="text-xs text-slate-500 uppercase font-bold mb-1">Client Seed</div>
+                                    <div className="font-mono text-xs text-slate-300 break-all">{clientSeed}</div>
+                                </div>
+                                <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
+                                    <div className="text-xs text-slate-500 uppercase font-bold mb-1">Nonce</div>
+                                    <div className="font-mono text-xs text-slate-300">{rollResult.nonce}</div>
+                                </div>
+                            </div>
+
+                            <div className="bg-[#0b0f19] p-4 rounded-xl border border-emerald-500/20">
+                                <div className="text-xs text-slate-500 uppercase font-bold mb-1">Final Outcome</div>
+                                <div className="font-mono text-xs text-emerald-400 font-bold">{rollResult.randomValue.toFixed(8)}</div>
+                                <div className="text-xs text-slate-500 mt-2">Generated from HMAC-SHA256(serverSeed, clientSeed:nonce)</div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={() => {
+                                    const prompt = `I need you to verify this provably fair gambling roll to confirm it wasn't manipulated.
+
+**Given Data:**
+- Server Seed: ${rollResult.serverSeed}
+- Server Seed Hash (Pre-committed): ${rollResult.serverSeedHash}
+- Client Seed: ${clientSeed}
+- Nonce: ${rollResult.nonce}
+- Final Outcome: ${rollResult.randomValue}
+
+**Verification Steps:**
+1. First, verify that SHA-256(serverSeed) equals the pre-committed hash
+2. Then, calculate HMAC-SHA256 using:
+   - Key: serverSeed
+   - Message: clientSeed:nonce (concatenated with colon)
+3. Convert the HMAC result to a decimal between 0 and 1
+4. Confirm this matches the Final Outcome
+
+Please perform these calculations and tell me if this roll was fair or if there's any evidence of manipulation.`;
+                                    navigator.clipboard.writeText(prompt);
+                                    alert('Verification prompt copied! Paste into ChatGPT to verify fairness.');
+                                }}
+                                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20"
+                            >
+                                <Sparkles className="w-5 h-5" /> COPY PROMPT FOR CHATGPT
+                            </button>
+                            <button
+                                onClick={onComplete}
+                                className="w-full bg-[#131b2e] hover:bg-white/5 text-slate-400 hover:text-white font-bold py-3 rounded-xl border border-white/10 transition-colors"
+                            >
+                                CLOSE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

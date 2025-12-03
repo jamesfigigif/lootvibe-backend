@@ -503,16 +503,9 @@ export default function App() {
                 preGeneratedReel: reelItems
             });
 
-            // Wait for animation
-            setTimeout(async () => {
-                if (!user) return; // User state is already updated, this check is mostly for safety
-
-                setIsOpening(false);
-                setView({ page: 'HOME' });
-                setSelectedBox(null);
-
-                console.log('🎉 Free box flow complete!');
-            }, 3000);
+            // Wait for animation - REMOVED to let WelcomeOpeningStage control the flow
+            // The WelcomeOpeningStage will call onComplete when the user is done
+            console.log('🎉 Free box flow initiated, waiting for user interaction...');
 
         } catch (error) {
             console.error('❌ Error claiming free box:', error);
@@ -1712,6 +1705,7 @@ export default function App() {
                                     setView({ page: 'HOME' });
                                 }}
                                 rollResult={rollResult}
+                                clientSeed={user?.clientSeed}
                             />
                         ) : (
                             <OpeningStage

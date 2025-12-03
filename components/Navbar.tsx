@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { SignInButton } from '../components/ClerkAuthWrapper';
-import { Wallet, LogOut, Package, UserCircle2, Settings, Bell, Menu, X, Trophy, Users } from 'lucide-react';
+import { Wallet, LogOut, Package, UserCircle2, Settings, Bell, Menu, X, Trophy, Users, Shield } from 'lucide-react';
 import { NotificationDropdown } from './NotificationDropdown';
 import { getUnreadCount } from '../services/notificationService';
 import { supabase } from '../services/supabaseClient';
@@ -143,6 +143,11 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
       <button onClick={() => { onAffiliates(); setIsMobileMenuOpen(false); }} className="hover:text-white transition-colors text-purple-400 text-left flex items-center gap-2">
         <Users className="w-4 h-4" /> AFFILIATES
       </button>
+      {user?.role === 'admin' && (
+        <button onClick={() => { onAdmin(); setIsMobileMenuOpen(false); }} className="hover:text-white transition-colors text-red-400 text-left flex items-center gap-2">
+          <Shield className="w-4 h-4" /> ADMIN
+        </button>
+      )}
     </>
   );
 

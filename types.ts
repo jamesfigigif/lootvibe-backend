@@ -66,6 +66,7 @@ export interface User {
   freeBoxClaimed?: boolean;
   totalWagered?: number; // Total amount spent on boxes
   totalProfit?: number; // (Total item value won) - (Total spent)
+  role?: string;
 }
 
 export interface Transaction {

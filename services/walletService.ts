@@ -48,6 +48,7 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string): P
                 nonce: existingUser.nonce,
                 serverSeedHash: existingUser.server_seed_hash,
                 freeBoxClaimed: existingUser.free_box_claimed || false,
+                role: existingUser.role || 'user',
             };
         }
 
