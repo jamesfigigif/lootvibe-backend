@@ -251,7 +251,7 @@ export default function App() {
             const interval = setInterval(syncUser, 2000);
             return () => clearInterval(interval);
         }
-    }, [user?.id, clerk.session]);
+    }, [user?.id]); // Remove clerk.session dependency to avoid race conditions
 
     // Check for referral code and routes in URL
     useEffect(() => {
@@ -300,8 +300,9 @@ export default function App() {
                         console.error('❌ Failed to initialize user:', error);
                     }
                 }
-            } else if (!isSignedIn) {
-                // Clear user if not signed in
+            } else if (!isSignedIn && isLoaded) {
+                // Only clear user if Clerk is fully loaded AND user is definitely not signed in
+                // This prevents clearing during Clerk's initialization/refresh
                 if (user) {
                     console.log('🔓 User signed out, clearing user state');
                     setUser(null);
