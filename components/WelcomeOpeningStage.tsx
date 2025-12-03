@@ -25,7 +25,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
     // Configuration
     const CARD_WIDTH = 220; // Slightly larger for welcome
-    const MARGIN_X = 16;
+    const MARGIN_X = 16; // mx-2 = 8px on each side = 16px total
     const TOTAL_CARD_WIDTH = CARD_WIDTH + MARGIN_X;
     const WINNER_INDEX = 60;
 
@@ -127,7 +127,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                     </div>
 
                     {/* Center Indicator */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[320px] w-[4px] bg-yellow-400 z-30 shadow-[0_0_20px_rgba(250,204,21,1)]"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[320px] w-[4px] bg-yellow-400 z-30 shadow-[0_0_20px_rgba(250,204,21,1)] pointer-events-none"></div>
 
                     {/* The Reel */}
                     <div className="w-full overflow-hidden">
