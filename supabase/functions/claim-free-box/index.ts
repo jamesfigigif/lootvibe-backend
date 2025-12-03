@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { verifyToken } from 'https://deno.land/x/jose@v4.14.4/index.ts';
+import { importSPKI, jwtVerify } from 'https://deno.land/x/jose@v4.14.4/index.ts';
 
 const CLERK_PEM_PUBLIC_KEY = Deno.env.get('CLERK_PEM_PUBLIC_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -29,15 +29,11 @@ serve(async (req) => {
 
         let clerkUserId: string;
         try {
-            const publicKey = await crypto.subtle.importKey(
-                'spki',
-                new TextEncoder().encode(CLERK_PEM_PUBLIC_KEY),
-                { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-                false,
-                ['verify']
-            );
+            // Import the PEM public key
+            const publicKey = await importSPKI(CLERK_PEM_PUBLIC_KEY, 'RS256');
 
-            const { payload } = await verifyToken(token, publicKey);
+            // Verify the JWT token
+            const { payload } = await jwtVerify(token, publicKey);
             clerkUserId = payload.sub as string;
 
             if (!clerkUserId) {
