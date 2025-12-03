@@ -88,7 +88,7 @@ export const AdminPanel: React.FC = () => {
                 case 'deposits':
                     const { data: depositsData, error: depositsError } = await supabase
                         .from('transactions')
-                        .select('*, users(username, email)')
+                        .select('*, users(username)')
                         .eq('type', 'DEPOSIT')
                         .order('created_at', { ascending: false })
                         .limit(50);
@@ -98,7 +98,7 @@ export const AdminPanel: React.FC = () => {
                 case 'shipments':
                     const { data: shipmentsData, error: shipmentsError } = await supabase
                         .from('shipments')
-                        .select('*, users(username, email)')
+                        .select('*, users(username)')
                         .order('created_at', { ascending: false })
                         .limit(50);
                     if (shipmentsError) throw shipmentsError;
@@ -107,7 +107,7 @@ export const AdminPanel: React.FC = () => {
                 case 'withdrawals':
                     const { data: withdrawalsData, error: withdrawalsError } = await supabase
                         .from('transactions')
-                        .select('*, users(username, email)')
+                        .select('*, users(username)')
                         .eq('type', 'WITHDRAWAL')
                         .order('created_at', { ascending: false })
                         .limit(50);
@@ -117,7 +117,7 @@ export const AdminPanel: React.FC = () => {
                 case 'transactions':
                     const { data: txData, error: txError } = await supabase
                         .from('transactions')
-                        .select('*, users(username, email)')
+                        .select('*, users(username)')
                         .order('created_at', { ascending: false })
                         .limit(50);
                     if (txError) throw txError;

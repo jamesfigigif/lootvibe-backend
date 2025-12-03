@@ -342,7 +342,8 @@ export default function App() {
         const clerkToken = await getToken({ template: 'supabase' });
         console.log('🔑 Got Clerk token for user creation:', !!clerkToken);
 
-        const loggedInUser = await getUser(clerkUser.id, clerkToken || undefined);
+        const userEmail = clerkUser.primaryEmailAddress?.emailAddress || clerkUser.emailAddresses?.[0]?.emailAddress;
+        const loggedInUser = await getUser(clerkUser.id, clerkToken || undefined, userEmail);
         console.log('✅ User fetched:', loggedInUser.username, 'freeBoxClaimed:', loggedInUser.freeBoxClaimed);
 
         // Check for pending referral

@@ -4,7 +4,7 @@ import { generateClientSeed } from './provablyFairService';
 import { createClient } from '@supabase/supabase-js';
 
 // Get or create user
-export const getUser = async (userId: string = 'user-1', clerkToken?: string): Promise<User> => {
+export const getUser = async (userId: string = 'user-1', clerkToken?: string, email?: string): Promise<User> => {
     try {
         // Try to fetch existing user
         const { data: existingUser, error: fetchError } = await supabase
@@ -94,11 +94,12 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string): P
                     console.log('⚠️ getUser received NO clerkToken');
                 }
 
-                const { error: insertError } = await clientToUse
+                const { error: insertError} = await clientToUse
                     .from('users')
                     .insert({
                         id: newUser.id,
                         username: newUser.username,
+                        email: email || null,
                         balance: newUser.balance,
                         avatar: newUser.avatar,
                         client_seed: newUser.clientSeed,
