@@ -198,29 +198,18 @@ export default function App() {
         const fetchBoxes = async () => {
             try {
                 setBoxesLoading(true);
-                // Try with 'enabled' field first
+                // Fetch boxes using 'active' field
                 let { data, error } = await supabase
                     .from('boxes')
                     .select('*')
-                    .eq('enabled', true)
+                    .eq('active', true)
                     .order('created_at', { ascending: false });
 
                 if (error) {
-                    // Try with 'active' field instead of 'enabled'
-                    const retry = await supabase
-                        .from('boxes')
-                        .select('*')
-                        .eq('active', true)
-                        .order('created_at', { ascending: false });
-
-                    if (retry.error) {
-                        console.error('Error fetching boxes:', retry.error);
-                        // Keep INITIAL_BOXES as fallback
-                        setBoxesLoading(false);
-                        return;
-                    }
-
-                    data = retry.data;
+                    console.error('Error fetching boxes:', error);
+                    // Keep INITIAL_BOXES as fallback
+                    setBoxesLoading(false);
+                    return;
                 }
 
                 if (data && data.length > 0) {
