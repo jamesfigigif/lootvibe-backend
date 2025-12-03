@@ -11,3 +11,5 @@ public/
 backend/node_modules/
 backend/.env
 backend/.env.local
+
+video_assets/
