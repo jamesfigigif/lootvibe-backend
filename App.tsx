@@ -861,49 +861,50 @@ export default function App() {
         }
 
         try {
-            // Deduct balance from database
-            await addTransaction(user.id, 'BET', cost, `Battle creation: ${battlePlayerCount === 2 ? '1v1' : battlePlayerCount === 4 ? '2v2' : '3v3'}`);
+            // Get Clerk token for authentication
+            const clerkToken = await getToken({ template: 'supabase' });
+            if (!clerkToken) {
+                throw new Error('Not authenticated');
+            }
 
-            // Refresh user from database
+            // Call secure edge function to create battle
+            const { data, error } = await supabase.functions.invoke('battle-create', {
+                headers: {
+                    Authorization: `Bearer ${clerkToken}`
+                },
+                body: {
+                    boxId: box.id,
+                    playerCount: battlePlayerCount,
+                    roundCount: 1,
+                    mode: 'STANDARD'
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error || 'Failed to create battle');
+
+            // Update local user balance
             const updatedUser = await getUser(user.id);
             setUser(updatedUser);
 
-            const playersArray = new Array(battlePlayerCount).fill(null);
-            playersArray[0] = updatedUser; // Creator is always slot 0
-
+            // Add battle to local state
             const newBattle: Battle = {
-                id: `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                boxId: box.id,
-                price: cost,
-                playerCount: battlePlayerCount,
-                players: playersArray,
-                status: 'WAITING',
-                roundCount: 1,
+                id: data.battle.id,
+                boxId: data.battle.box_id,
+                price: data.battle.price,
+                playerCount: data.battle.player_count,
+                players: data.battle.players,
+                status: data.battle.status,
+                roundCount: data.battle.round_count,
+                mode: data.battle.mode
             };
-
-            // Save battle to database
-            const { error: dbError } = await supabase
-                .from('battles')
-                .insert({
-                    id: newBattle.id,
-                    box_id: newBattle.boxId,
-                    price: newBattle.price,
-                    player_count: newBattle.playerCount,
-                    round_count: newBattle.roundCount,
-                    mode: 'STANDARD',
-                    status: newBattle.status,
-                    players: JSON.stringify(newBattle.players)
-                });
-
-            if (dbError) {
-                console.error('Error saving battle to database:', dbError);
-                // Continue anyway - battle will work in memory
-            }
 
             setBattles([newBattle, ...battles]);
             setShowCreateBattle(false);
             setActiveBattle(newBattle);
             setView({ page: 'BATTLE_ARENA' });
+
+            console.log('✅ Battle created via secure edge function');
         } catch (error) {
             console.error('❌ Error creating battle:', error);
             alert('Failed to create battle. Please try again.');
@@ -1142,50 +1143,49 @@ export default function App() {
         }
 
         try {
-            // Deduct balance from database
-            await addTransaction(user.id, 'BET', cost, `Battle entry: ${target.roundCount} round${target.roundCount > 1 ? 's' : ''} - ${target.playerCount === 2 ? '1v1' : target.playerCount === 4 ? '2v2' : '3v3'}`);
+            // Get Clerk token for authentication
+            const clerkToken = await getToken({ template: 'supabase' });
+            if (!clerkToken) {
+                throw new Error('Not authenticated');
+            }
 
-            // Refresh user from database to get updated balance
+            // Call secure edge function to join battle
+            const { data, error } = await supabase.functions.invoke('battle-join', {
+                headers: {
+                    Authorization: `Bearer ${clerkToken}`
+                },
+                body: {
+                    battleId
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error || 'Failed to join battle');
+
+            // Update local user balance
             const updatedUser = await getUser(user.id);
             setUser(updatedUser);
 
+            // Update battles in local state
             const updatedBattles = battles.map(b => {
                 if (b.id === battleId) {
-                    const newPlayers = [...b.players];
-                    newPlayers[emptyIndex] = updatedUser;
-                    const isNowFull = newPlayers.every(p => p !== null);
                     return {
                         ...b,
-                        players: newPlayers,
-                        status: isNowFull ? 'ACTIVE' : 'WAITING'
+                        players: data.battle.players,
+                        status: data.battle.status
                     } as Battle;
                 }
                 return b;
             });
 
-            // Update battle in database
-            const updatedBattle = updatedBattles.find(b => b.id === battleId);
-            if (updatedBattle) {
-                const { error: dbError } = await supabase
-                    .from('battles')
-                    .update({
-                        players: JSON.stringify(updatedBattle.players),
-                        status: updatedBattle.status,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', battleId);
-
-                if (dbError) {
-                    console.error('Error updating battle in database:', dbError);
-                    // Continue anyway - battle will work in memory
-                }
-            }
-
             setBattles(updatedBattles);
+            const updatedBattle = updatedBattles.find(b => b.id === battleId);
             if (updatedBattle) {
                 setActiveBattle(updatedBattle);
                 setView({ page: 'BATTLE_ARENA' });
             }
+
+            console.log('✅ Joined battle via secure edge function');
         } catch (error) {
             console.error('❌ Error joining battle:', error);
             alert('Failed to join battle. Please try again.');
