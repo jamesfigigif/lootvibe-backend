@@ -10,8 +10,13 @@ const ETHWalletService = require('./services/ETHWalletService');
 const BlockchainMonitor = require('./services/BlockchainMonitor');
 const AdminAuthService = require('./services/AdminAuthService');
 const LiveDropService = require('./services/LiveDropService');
+const WithdrawalProcessor = require('./services/WithdrawalProcessor');
+const HotWalletMonitor = require('./services/HotWalletMonitor');
+const WithdrawalLimits = require('./services/WithdrawalLimits');
+const EmailService = require('./services/EmailService');
 const { authenticateAdmin, requirePermission } = require('./middleware/adminAuth');
 const { authenticateUser } = require('./middleware/auth');
+const { validateWithdrawalAddress } = require('./middleware/addressValidation');
 const createAdminRoutes = require('./routes/admin');
 const createBoxRoutes = require('./routes/boxes');
 const createAffiliateRoutes = require('./routes/affiliates');
@@ -43,6 +48,43 @@ const ethWallet = new ETHWalletService();
 // Initialize blockchain monitor
 const monitor = new BlockchainMonitor(supabase);
 monitor.start();
+
+// Initialize email service
+const emailService = new EmailService({
+    provider: 'sendgrid',
+    apiKey: process.env.SENDGRID_API_KEY,
+    enabled: process.env.EMAIL_ENABLED !== 'false',
+    testMode: process.env.NODE_ENV === 'development'
+});
+
+// Initialize withdrawal limits service
+const withdrawalLimits = new WithdrawalLimits(supabase, {
+    dailyLimit: parseFloat(process.env.DAILY_WITHDRAWAL_LIMIT) || 10000,
+    monthlyLimit: parseFloat(process.env.MONTHLY_WITHDRAWAL_LIMIT) || 100000
+});
+
+// Initialize hot wallet monitor
+const hotWalletMonitor = new HotWalletMonitor(supabase, btcWallet, ethWallet, {
+    checkInterval: 60000, // 1 minute
+    btcCritical: 0.05,
+    btcWarning: 0.1,
+    ethCritical: 0.5,
+    ethWarning: 1.0,
+    alertWebhookUrl: process.env.ALERT_WEBHOOK_URL,
+    discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL
+});
+hotWalletMonitor.start();
+
+// Initialize withdrawal processor
+const withdrawalProcessor = new WithdrawalProcessor(supabase, btcWallet, ethWallet, {
+    processingInterval: 30000, // 30 seconds
+    maxRetries: 3,
+    minBTCBalance: 0.1,
+    minETHBalance: 1.0,
+    testMode: process.env.NODE_ENV === 'development',
+    alertWebhookUrl: process.env.ALERT_WEBHOOK_URL
+});
+withdrawalProcessor.start();
 
 // Schedule automatic live drops generation
 scheduleLiveDrop();
@@ -401,7 +443,7 @@ app.get('/health', (req, res) => {
  * POST /api/withdrawals/request
  * Body: { amount, currency, address }
  */
-app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res) => {
+app.post('/api/withdrawals/request', authenticateUser(supabase), validateWithdrawalAddress, async (req, res) => {
     try {
         const { amount, currency, address } = req.body;
         const userId = req.user.id; // From auth middleware
@@ -415,9 +457,30 @@ app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res
             return res.status(400).json({ error: 'Minimum withdrawal amount is $25' });
         }
 
+        // ✅ NEW: Check withdrawal limits
+        const limitsCheck = await withdrawalLimits.checkWithdrawalLimit(userId, amount);
+        if (!limitsCheck.allowed) {
+            return res.status(400).json({
+                error: limitsCheck.message,
+                reason: limitsCheck.reason,
+                limit: limitsCheck.limit,
+                withdrawn: limitsCheck.withdrawn,
+                remaining: limitsCheck.remaining,
+                resetTime: limitsCheck.resetTime
+            });
+        }
+
+        // ✅ NEW: Check hot wallet has sufficient balance
+        if (!hotWalletMonitor.hasSufficientBalance(currency, amount)) {
+            return res.status(503).json({
+                error: 'Insufficient hot wallet funds. Please try again later or contact support.',
+                reason: 'HOT_WALLET_LOW'
+            });
+        }
+
         // Check platform settings for auto-approval
         let autoApprove = false;
-        let manualApprovalThreshold = 1000; // Default threshold
+        let manualApprovalThreshold = 1000;
         try {
             const { data: settings } = await supabase
                 .from('platform_settings')
@@ -429,15 +492,11 @@ app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res
                 const isAutoApproveEnabled = settings.auto_approve_withdrawals || false;
                 manualApprovalThreshold = parseFloat(settings.manual_approval_threshold) || 1000;
 
-                // Auto-approve only if:
-                // 1. Auto-approve is enabled AND
-                // 2. Withdrawal amount is below the manual approval threshold
                 if (isAutoApproveEnabled && amount < manualApprovalThreshold) {
                     autoApprove = true;
                 }
             }
         } catch (e) {
-            // If platform_settings doesn't exist, default to manual approval
             console.log('Platform settings not found, defaulting to manual approval');
         }
 
@@ -452,6 +511,9 @@ app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res
             console.error('Balance update error:', balanceError);
             return res.status(400).json({ error: balanceError.message || 'Insufficient balance or error updating funds' });
         }
+
+        // ✅ NEW: Record withdrawal against limits
+        await withdrawalLimits.recordWithdrawal(userId, amount);
 
         // Create withdrawal record
         const withdrawalId = `wd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -468,19 +530,44 @@ app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res
                 withdrawal_address: address,
                 status,
                 processed_at: autoApprove ? new Date().toISOString() : null,
-                net_amount: amount
+                net_amount: amount,
+                ip_address: req.ip || req.connection.remoteAddress
             });
 
         if (withdrawalError) {
-            // Rollback balance (refund)
+            // Rollback balance and limits
             await supabase.rpc('increment_balance', {
                 user_id: userId,
                 amount: amount
             });
+            await withdrawalLimits.refundWithdrawal(userId, amount);
 
             console.error('Withdrawal creation error:', withdrawalError);
             return res.status(500).json({ error: 'Failed to create withdrawal request' });
         }
+
+        // ✅ NEW: Send email notification
+        try {
+            const { data: user } = await supabase
+                .from('users')
+                .select('email, username')
+                .eq('id', userId)
+                .single();
+
+            if (user?.email) {
+                await emailService.sendWithdrawalSubmitted(user.email, {
+                    currency,
+                    amount,
+                    withdrawalAddress: address,
+                    status
+                });
+            }
+        } catch (emailErr) {
+            console.error('Email notification failed:', emailErr);
+            // Don't fail the withdrawal if email fails
+        }
+
+        console.log(`💸 Withdrawal request created: ${withdrawalId} - ${amount} ${currency} (${status})`);
 
         res.json({
             success: true,
@@ -490,7 +577,9 @@ app.post('/api/withdrawals/request', authenticateUser(supabase), async (req, res
                 ? `Withdrawal approved automatically (below $${manualApprovalThreshold} threshold) and will be processed shortly`
                 : amount >= manualApprovalThreshold
                     ? `Withdrawal request submitted. Amount exceeds $${manualApprovalThreshold} threshold and requires manual approval.`
-                    : 'Withdrawal request submitted. Awaiting admin approval.'
+                    : 'Withdrawal request submitted. Awaiting admin approval.',
+            dailyRemaining: limitsCheck.dailyRemaining,
+            monthlyRemaining: limitsCheck.monthlyRemaining
         });
 
     } catch (error) {

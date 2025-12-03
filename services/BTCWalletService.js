@@ -60,6 +60,47 @@ class BTCWalletService {
             return false;
         }
     }
+
+    /**
+     * Get hot wallet address (index 0)
+     */
+    getHotWalletAddress() {
+        const path = `m/44'/0'/0'/0/0`; // Hot wallet at index 0
+        const child = this.masterKey.derivePath(path);
+        const { address } = bitcoin.payments.p2wpkh({
+            pubkey: child.publicKey,
+            network: this.network
+        });
+        return address;
+    }
+
+    /**
+     * Get hot wallet key pair (for signing transactions)
+     */
+    getHotWalletKeyPair() {
+        const path = `m/44'/0'/0'/0/0`; // Hot wallet at index 0
+        return this.masterKey.derivePath(path);
+    }
+
+    /**
+     * Get UTXOs for an address
+     */
+    async getUTXOs(address) {
+        try {
+            const testnet = this.network === bitcoin.networks.testnet;
+            const baseUrl = testnet ? 'https://mempool.space/testnet' : 'https://mempool.space';
+
+            const response = await fetch(`${baseUrl}/api/address/${address}/utxo`);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch UTXOs: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (err) {
+            console.error('Error fetching UTXOs:', err);
+            return [];
+        }
+    }
 }
 
 module.exports = BTCWalletService;

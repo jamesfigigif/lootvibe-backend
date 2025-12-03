@@ -53,6 +53,33 @@ class ETHWalletService {
             return false;
         }
     }
+
+    /**
+     * Get hot wallet (index 0)
+     */
+    getHotWallet() {
+        const wallet = this.hdNode
+            .deriveChild(44 + 0x80000000)  // 44' (hardened)
+            .deriveChild(60 + 0x80000000)  // 60' (hardened, ETH coin type)
+            .deriveChild(0 + 0x80000000)   // 0' (hardened, account)
+            .deriveChild(0)                 // 0 (external chain)
+            .deriveChild(0);                // index 0 = hot wallet
+
+        // Connect to provider
+        const provider = this.getProvider();
+        return wallet.connect(provider);
+    }
+
+    /**
+     * Get Ethereum provider
+     */
+    getProvider() {
+        const rpcUrl = process.env.ETH_RPC_URL || process.env.NODE_ENV === 'development'
+            ? 'https://sepolia.infura.io/v3/' + (process.env.INFURA_API_KEY || '')
+            : 'https://mainnet.infura.io/v3/' + (process.env.INFURA_API_KEY || '');
+
+        return new ethers.JsonRpcProvider(rpcUrl);
+    }
 }
 
 module.exports = ETHWalletService;
