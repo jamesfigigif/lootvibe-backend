@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '../services/supabaseClient';
-import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3, Video } from 'lucide-react';
+import { StreamerManagement } from './StreamerManagement';
 
 export const AdminPanel: React.FC = () => {
     const { user: clerkUser, isLoaded } = useUser();
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'deposits' | 'shipments' | 'withdrawals' | 'transactions' | 'boxes' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'streamers' | 'deposits' | 'shipments' | 'withdrawals' | 'transactions' | 'boxes' | 'settings'>('dashboard');
 
     // Data states
     const [stats, setStats] = useState<any>(null);
@@ -162,11 +163,11 @@ export const AdminPanel: React.FC = () => {
                     break;
                 case 'settings':
                     // Fetch current settings from backend
-                    const settingsResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings/public`);
+                    const settingsResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings`);
                     if (settingsResponse.ok) {
                         const settingsData = await settingsResponse.json();
-                        setAutoWithdrawEnabled(settingsData.auto_approve_withdrawals || false);
-                        setAutoWithdrawLimit(settingsData.manual_approval_threshold || 100);
+                        setAutoWithdrawEnabled(settingsData.settings?.auto_approve_withdrawals || false);
+                        setAutoWithdrawLimit(parseFloat(settingsData.settings?.manual_approval_threshold) || 100);
                     }
                     break;
             }
@@ -205,14 +206,16 @@ export const AdminPanel: React.FC = () => {
             setSavingSettings(true);
             setError(null);
 
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings/update`, {
-                method: 'POST',
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings`, {
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    auto_approve_withdrawals: autoWithdrawEnabled,
-                    manual_approval_threshold: autoWithdrawLimit
+                    settings: {
+                        auto_approve_withdrawals: autoWithdrawEnabled,
+                        manual_approval_threshold: autoWithdrawLimit
+                    }
                 })
             });
 
@@ -264,16 +267,18 @@ export const AdminPanel: React.FC = () => {
             }, 0);
 
             // Calculate revenue (box price * opens) - payouts
-            const boxPrice = parseFloat(box.sale_price || box.price);
+            const boxPrice = parseFloat(box.sale_price || box.price) || 0;
             const revenue = (boxPrice * totalOpens) - totalValueWon;
-            const houseEdge = totalOpens > 0 ? ((revenue / (boxPrice * totalOpens)) * 100) : 0;
+            const houseEdge = (totalOpens > 0 && boxPrice > 0) ? ((revenue / (boxPrice * totalOpens)) * 100) : 0;
 
             // Calculate expected value
             const expectedValue = items.reduce((sum: number, item: any) => {
-                return sum + (parseFloat(item.value) * (parseFloat(item.odds) / 100));
+                const itemValue = parseFloat(item.value) || 0;
+                const itemOdds = parseFloat(item.odds) || 0;
+                return sum + (itemValue * (itemOdds / 100));
             }, 0);
 
-            const theoreticalHouseEdge = ((boxPrice - expectedValue) / boxPrice) * 100;
+            const theoreticalHouseEdge = (boxPrice > 0) ? ((boxPrice - expectedValue) / boxPrice) * 100 : 0;
 
             return {
                 ...box,
@@ -357,6 +362,7 @@ export const AdminPanel: React.FC = () => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
                         { id: 'users', label: 'Users', icon: Users },
+                        { id: 'streamers', label: 'Streamers', icon: Video },
                         { id: 'boxes', label: 'Boxes', icon: Box },
                         { id: 'deposits', label: 'Deposits', icon: DollarSign },
                         { id: 'shipments', label: 'Shipments', icon: Package },
@@ -444,6 +450,10 @@ export const AdminPanel: React.FC = () => {
                                 </table>
                             </div>
                         </div>
+                    )}
+
+                    {activeTab === 'streamers' && clerkUser && (
+                        <StreamerManagement adminUser={{ id: clerkUser.id }} />
                     )}
 
                     {/* Deposits tab with crypto transaction details */}
@@ -546,7 +556,13 @@ export const AdminPanel: React.FC = () => {
                                 <div key={box.id} className="bg-[#0b0f19] rounded-lg border border-white/5 p-6">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
-                                            <img src={box.image} alt={box.name} className="w-20 h-20 rounded-lg object-cover" />
+                                            {box.image ? (
+                                                <img src={box.image} alt={box.name} className="w-20 h-20 rounded-lg object-cover" />
+                                            ) : (
+                                                <div className="w-20 h-20 rounded-lg bg-[#131b2e] flex items-center justify-center border border-white/10">
+                                                    <Box className="w-8 h-8 text-slate-600" />
+                                                </div>
+                                            )}
                                             <div>
                                                 <h3 className="text-lg font-bold">{box.name}</h3>
                                                 <p className="text-slate-400 text-sm">{box.description}</p>
@@ -602,7 +618,15 @@ export const AdminPanel: React.FC = () => {
                                                             <p className="font-medium">{item.name}</p>
                                                             <div className="flex items-center gap-3 text-xs">
                                                                 <span className="text-green-400">${parseFloat(item.value).toFixed(2)}</span>
-                                                                <span className="text-slate-400">Odds: {parseFloat(item.odds).toFixed(2)}%</span>
+                                                                <span className="text-slate-400">
+                                                                    Odds: {(() => {
+                                                                        const odds = parseFloat(item.odds) || 0;
+                                                                        if (odds >= 0.01) return odds.toFixed(2);
+                                                                        if (odds >= 0.001) return odds.toFixed(3);
+                                                                        if (odds >= 0.0001) return odds.toFixed(4);
+                                                                        return odds.toFixed(5);
+                                                                    })()}%
+                                                                </span>
                                                                 <span className={`px-2 py-0.5 rounded ${
                                                                     item.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-400' :
                                                                     item.rarity === 'epic' ? 'bg-purple-500/20 text-purple-400' :

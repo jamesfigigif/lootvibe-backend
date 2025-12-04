@@ -13,3 +13,11 @@ backend/.env
 backend/.env.local
 
 video_assets/
+
+# Documentation (contains sensitive info about streamer system)
+DATABASE_SCHEMA.md
+SYSTEM_DOCUMENTATION.md
+QUICK_REFERENCE.md
+database-schema.json
+current_schema.sql
+DEPLOY_FIXES.md

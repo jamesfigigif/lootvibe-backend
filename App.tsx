@@ -123,6 +123,7 @@ export default function App() {
 
     // Auth & Welcome Logic
     const [isWelcomeSpinPending, setIsWelcomeSpinPending] = useState(false);
+    const [showWelcomeTutorial, setShowWelcomeTutorial] = useState(true);
 
     // Filters & Search
     const [activeCategory, setActiveCategory] = useState<BoxCategory>('ALL');
@@ -364,7 +365,7 @@ export default function App() {
         setUser(loggedInUser);
         setShowAuth(false);
 
-        // Check if this login originated from "Claim Free Box" to trigger the spin
+        // Auto-trigger welcome box for ALL new users (not just when manually clicking "Claim Free Box")
         // Check both local state (for direct login) and localStorage (for redirect login)
         const localStorageFlag = localStorage.getItem('pendingWelcomeSpin');
         const isPending = isWelcomeSpinPending || localStorageFlag === 'true';
@@ -376,31 +377,27 @@ export default function App() {
             freeBoxClaimed: loggedInUser.freeBoxClaimed
         });
 
-        if (isPending) {
-            if (loggedInUser.freeBoxClaimed) {
-                console.log('⚠️ User already claimed free box, skipping spin');
-                setIsWelcomeSpinPending(false);
-                localStorage.removeItem('pendingWelcomeSpin');
-            } else {
-                console.log('🎰 Triggering Free Box spin in 500ms...');
-                setTimeout(() => {
-                    // Trigger welcome spin box
-                    const welcomeBox = INITIAL_BOXES.find(b => b.id === 'welcome_gift');
-                    console.log('📦 Welcome box found:', welcomeBox?.name);
-                    if (welcomeBox) {
-                        setSelectedBox(welcomeBox);
-                        // Rigged spin for welcome bonus
-                        handleWelcomeSpin(welcomeBox);
-                        setIsWelcomeSpinPending(false); // Reset pending state
-                        localStorage.removeItem('pendingWelcomeSpin');
-                        console.log('✅ Free Box spin triggered!');
-                    } else {
-                        console.error('❌ Welcome box not found in INITIAL_BOXES');
-                    }
-                }, 500);
-            }
+        // Redirect new users to welcome box page (don't auto-open, let them click)
+        if (!loggedInUser.freeBoxClaimed) {
+            console.log('🎰 New user detected! Redirecting to Welcome Box page...');
+            setTimeout(() => {
+                // Navigate to welcome box page
+                const welcomeBox = INITIAL_BOXES.find(b => b.id === 'welcome_gift');
+                console.log('📦 Welcome box found:', welcomeBox?.name);
+                if (welcomeBox) {
+                    setSelectedBox(welcomeBox);
+                    setView({ page: 'BOX_DETAIL' });
+                    setIsWelcomeSpinPending(false);
+                    localStorage.removeItem('pendingWelcomeSpin');
+                    console.log('✅ Redirected to Welcome Box page!');
+                } else {
+                    console.error('❌ Welcome box not found in INITIAL_BOXES');
+                }
+            }, 500);
         } else {
-            console.log('ℹ️ No pending welcome spin');
+            console.log('ℹ️ User already claimed free box, skipping welcome redirect');
+            setIsWelcomeSpinPending(false);
+            localStorage.removeItem('pendingWelcomeSpin');
         }
     };
 
@@ -413,40 +410,90 @@ export default function App() {
         console.log('🎁 Claiming free box via Edge Function...');
 
         try {
-            // Get Clerk session token
-            const token = await clerk.session?.getToken({ template: 'supabase' });
-            if (!token) {
-                console.error('❌ No Clerk token available');
-                alert('Authentication error. Please sign in again.');
-                return;
-            }
+            // Check if running in local dev mode
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-            // Show opening animation
-            setView({ page: 'OPENING' });
-            setIsOpening(true);
+            let data;
 
-            // Call secure Edge Function
-            const { data, error } = await supabase.functions.invoke('claim-free-box', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            if (isLocalDev) {
+                // Local dev mode - simulate box opening without Edge Function
+                console.log('🔧 Local dev mode - simulating free box claim');
 
-            if (error) {
-                console.error('❌ Edge Function error:', error);
+                // Show opening animation
+                setView({ page: 'OPENING' });
+                setIsOpening(true);
 
-                // Check if already claimed
-                if (error.message?.includes('already claimed')) {
-                    alert('You have already claimed your free box!');
-                    setIsOpening(false);
-                    setView({ page: 'HOME' });
+                // Pick item based on odds (weighted random)
+                const totalOdds = box.items.reduce((sum, item) => sum + parseFloat(item.odds), 0);
+                let random = Math.random() * totalOdds;
+                let selectedItem = box.items[0]; // fallback
+
+                for (const item of box.items) {
+                    random -= parseFloat(item.odds);
+                    if (random <= 0) {
+                        selectedItem = item;
+                        break;
+                    }
+                }
+
+                console.log('🎲 Selected item based on odds:', selectedItem.name, 'Odds:', selectedItem.odds + '%');
+                const randomItem = selectedItem;
+
+                // Simulate the response data
+                data = {
+                    success: true,
+                    item: randomItem,
+                    newBalance: user.balance, // Balance doesn't change for welcome box
+                    rollResult: {
+                        serverSeed: 'local-dev-seed',
+                        clientSeed: user.clientSeed,
+                        nonce: user.nonce || 0,
+                        combinedHash: 'local-dev-hash',
+                        rolledNumber: Math.random(),
+                        winningItem: randomItem,
+                        item: randomItem  // Add item here for WelcomeOpeningStage
+                    }
+                };
+
+                console.log('✅ Free box simulated successfully:', data);
+
+            } else {
+                // Production mode - use Edge Function
+                const token = await clerk.session?.getToken({ template: 'supabase' });
+                if (!token) {
+                    console.error('❌ No Clerk token available');
+                    alert('Authentication error. Please sign in again.');
                     return;
                 }
 
-                throw error;
-            }
+                // Show opening animation
+                setView({ page: 'OPENING' });
+                setIsOpening(true);
 
-            console.log('✅ Free box claimed successfully:', data);
+                // Call secure Edge Function
+                const response = await supabase.functions.invoke('claim-free-box', {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (response.error) {
+                    console.error('❌ Edge Function error:', response.error);
+
+                    // Check if already claimed
+                    if (response.error.message?.includes('already claimed')) {
+                        alert('You have already claimed your free box!');
+                        setIsOpening(false);
+                        setView({ page: 'HOME' });
+                        return;
+                    }
+
+                    throw response.error;
+                }
+
+                data = response.data;
+                console.log('✅ Free box claimed successfully:', data);
+            }
 
             // CRITICAL: Update user state IMMEDIATELY to prevent re-claiming
             const updatedUser = {
@@ -554,23 +601,100 @@ export default function App() {
             const authHeader = `Bearer ${anonKey}`;
             console.log(`🔐 Secure Box Opening - Using Edge Function for user: ${user.id}`);
 
-            // Call secure edge function (similar to battle-spin)
-            const { data, error } = await supabase.functions.invoke('box-open', {
-                headers: {
-                    Authorization: authHeader
-                },
-                body: {
-                    boxId: selectedBox.id,
-                    userId: user.id,
-                    clientSeed: user.clientSeed,
-                    nonce: user.nonce
+            // Check if running in local dev mode
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            let outcome;
+
+            if (isLocalDev) {
+                // Local dev mode - simulate box opening without Edge Function
+                console.log('🔧 Local dev mode - simulating box opening');
+
+                // Check if user is a streamer and apply odds multiplier (silently)
+                const isStreamer = user.is_streamer || false;
+                const oddsMultiplier = isStreamer ? (parseFloat(user.streamer_odds_multiplier as any) || 1.0) : 1.0;
+
+                // Apply multiplier to high-value items (same logic as Edge Function)
+                const adjustedItems = selectedBox.items.map(item => {
+                    const itemValue = parseFloat(item.value);
+                    const baseOdds = parseFloat(item.odds);
+
+                    // Apply multiplier only to items worth more than box price (rare items)
+                    let adjustedOdds = baseOdds;
+                    if (isStreamer && oddsMultiplier > 1.0 && itemValue >= cost) {
+                        adjustedOdds = baseOdds * oddsMultiplier;
+                    }
+
+                    return { ...item, adjustedOdds };
+                });
+
+                // Pick item based on adjusted odds (weighted random)
+                const totalOdds = adjustedItems.reduce((sum, item) => sum + (item.adjustedOdds || parseFloat(item.odds)), 0);
+                let random = Math.random() * totalOdds;
+                let selectedItem = adjustedItems[0]; // fallback
+
+                for (const item of adjustedItems) {
+                    const itemOdds = item.adjustedOdds || parseFloat(item.odds);
+                    random -= itemOdds;
+                    if (random <= 0) {
+                        selectedItem = item;
+                        break;
+                    }
                 }
-            });
 
-            if (error) throw error;
-            if (!data.success) throw new Error(data.error || 'Failed to generate outcome');
+                console.log('🎲 Selected item based on odds:', selectedItem.name);
 
-            const outcome = data.outcome;
+                // Simulate the outcome data structure
+                outcome = {
+                    item: selectedItem,
+                    itemValue: selectedItem.value,
+                    serverSeed: 'local-dev-seed-' + Date.now(),
+                    serverSeedHash: 'local-dev-hash-' + Math.random().toString(36).substring(7),
+                    nonce: user.nonce || 0,
+                    randomValue: Math.random(),
+                    openingId: 'local-opening-' + Date.now(),
+                    newBalance: user.balance - cost + selectedItem.value
+                };
+
+                // Update localStorage for local dev
+                const storageKey = `lootvibe_local_user_${user.id}`;
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    try {
+                        const current = JSON.parse(stored);
+                        const updatedUser = {
+                            ...current,
+                            balance: outcome.newBalance,
+                            nonce: (current.nonce || 0) + 1,
+                            inventory: [...(current.inventory || []), selectedItem]
+                        };
+                        localStorage.setItem(storageKey, JSON.stringify(updatedUser));
+                        console.log('✅ Local user data updated with box opening');
+                    } catch (e) {
+                        console.error('Error updating local user:', e);
+                    }
+                }
+
+                console.log('✅ Box opened successfully (local dev):', outcome);
+            } else {
+                // Production mode - use Edge Function
+                const { data, error } = await supabase.functions.invoke('box-open', {
+                    headers: {
+                        Authorization: authHeader
+                    },
+                    body: {
+                        boxId: selectedBox.id,
+                        userId: user.id,
+                        clientSeed: user.clientSeed,
+                        nonce: user.nonce
+                    }
+                });
+
+                if (error) throw error;
+                if (!data.success) throw new Error(data.error || 'Failed to generate outcome');
+
+                outcome = data.outcome;
+            }
             // Outcome generated successfully
 
             // Format result to match expected structure
@@ -740,37 +864,79 @@ export default function App() {
     const handleSellItem = React.useCallback(async () => {
         if (!user || !rollResult) return;
         try {
+            // Check if running in local dev mode first
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
             // SECURITY: Use edge function to exchange item (prevents manipulation)
-            // Get Clerk JWT token for authentication
-            const clerkToken = await getToken({ template: 'supabase' });
-            if (!clerkToken) {
-                throw new Error('Not authenticated with Clerk');
-            }
-
-            // Get anon key for Supabase gateway (required)
-            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-            if (!anonKey) {
-                throw new Error('VITE_SUPABASE_ANON_KEY is missing!');
-            }
-
-            // Call secure edge function
-            // Send anon key in Authorization (for Supabase gateway)
-            // Send Clerk JWT in custom header (for function to verify)
-            const { data, error } = await supabase.functions.invoke('item-exchange', {
-                headers: {
-                    Authorization: `Bearer ${anonKey}`,
-                    'X-Clerk-Token': clerkToken // Custom header for Clerk JWT
-                },
-                body: {
-                    openingId: (rollResult as any).openingId
+            // Skip Clerk token in local dev mode
+            let clerkToken;
+            if (!isLocalDev) {
+                clerkToken = await getToken({ template: 'supabase' });
+                if (!clerkToken) {
+                    throw new Error('Not authenticated with Clerk');
                 }
-            });
+            }
 
-            if (error) throw error;
-            if (!data.success) throw new Error(data.error || 'Failed to exchange item');
+            // Get anon key for Supabase gateway (only needed in production)
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+            let itemValue;
+
+            if (isLocalDev) {
+                // Local dev mode - simulate item exchange
+                console.log('🔧 Local dev mode - simulating item exchange');
+
+                itemValue = rollResult.item.value;
+
+                // Update localStorage
+                const storageKey = `lootvibe_local_user_${user.id}`;
+                const stored = localStorage.getItem(storageKey);
+                if (stored) {
+                    try {
+                        const current = JSON.parse(stored);
+                        const updatedBalance = current.balance + itemValue;
+
+                        // Remove the item from inventory (it was added when box was opened)
+                        // Remove only ONE instance in case user has duplicates
+                        const updatedInventory = [...(current.inventory || [])];
+                        const indexToRemove = updatedInventory.findIndex((item: any) =>
+                            item.id === rollResult.item.id && item.value === rollResult.item.value
+                        );
+                        if (indexToRemove !== -1) {
+                            updatedInventory.splice(indexToRemove, 1);
+                        }
+
+                        const updatedUser = {
+                            ...current,
+                            balance: updatedBalance,
+                            inventory: updatedInventory
+                        };
+                        localStorage.setItem(storageKey, JSON.stringify(updatedUser));
+                        console.log('✅ Local item exchanged for balance:', itemValue);
+                    } catch (e) {
+                        console.error('Error updating local user:', e);
+                    }
+                }
+            } else {
+                // Production mode - use Edge Function
+                const { data, error } = await supabase.functions.invoke('item-exchange', {
+                    headers: {
+                        Authorization: `Bearer ${anonKey}`,
+                        'X-Clerk-Token': clerkToken // Custom header for Clerk JWT
+                    },
+                    body: {
+                        openingId: (rollResult as any).openingId
+                    }
+                });
+
+                if (error) throw error;
+                if (!data.success) throw new Error(data.error || 'Failed to exchange item');
+
+                itemValue = data.itemValue;
+            }
 
             // Trigger balance animation
-            setBalanceIncrease(data.itemValue);
+            setBalanceIncrease(itemValue);
 
             // Close modal immediately
             resetOpenState();
@@ -1568,7 +1734,57 @@ export default function App() {
                             </div>
                         </main>
                     ) : view.page === 'BOX_DETAIL' && selectedBox ? (
-                        <div className="max-w-6xl mx-auto px-4 animate-in fade-in zoom-in-95 duration-300 pt-8 pb-16">
+                        <div className="max-w-6xl mx-auto px-4 animate-in fade-in zoom-in-95 duration-300 pt-8 pb-16 relative">
+                            {/* Tutorial Overlay for New Users on Welcome Box */}
+                            {selectedBox.id === 'welcome_gift' && user && !user.freeBoxClaimed && showWelcomeTutorial && (
+                                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+                                    <div className="max-w-md w-full bg-gradient-to-br from-purple-900/90 to-indigo-900/90 border-2 border-purple-500/50 rounded-3xl p-8 shadow-[0_0_60px_rgba(147,51,234,0.4)] relative animate-scale-in">
+                                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg border-2 border-purple-400">
+                                            🎁 WELCOME GIFT
+                                        </div>
+
+                                        <div className="text-center mt-4 mb-6">
+                                            <h2 className="text-3xl font-bold text-white mb-3">Your Free Box Awaits!</h2>
+                                            <p className="text-purple-200 text-sm leading-relaxed">
+                                                We've given you a <span className="text-white font-bold">completely FREE mystery box</span> as a welcome gift!
+                                                Open it to receive your starting balance.
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-black/30 border border-purple-400/30 rounded-2xl p-6 mb-6 space-y-4">
+                                            <div className="flex gap-3">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm">1</div>
+                                                <div>
+                                                    <div className="text-white font-semibold mb-1">Click "OPEN NOW"</div>
+                                                    <div className="text-purple-200 text-xs">Press the purple button below to spin your free box</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm">2</div>
+                                                <div>
+                                                    <div className="text-white font-semibold mb-1">Watch the Animation</div>
+                                                    <div className="text-purple-200 text-xs">Enjoy the provably fair rolling animation</div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-3">
+                                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center font-bold text-sm">3</div>
+                                                <div>
+                                                    <div className="text-white font-semibold mb-1">Claim Your Prize</div>
+                                                    <div className="text-purple-200 text-xs">Your winnings will be added to your balance instantly!</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setShowWelcomeTutorial(false)}
+                                            className="w-full bg-white text-purple-900 font-bold py-4 rounded-xl hover:bg-purple-50 transition-colors shadow-lg"
+                                        >
+                                            GOT IT! LET'S OPEN THE BOX 🎉
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             <button onClick={() => setView({ page: 'HOME' })} className="flex items-center gap-2 text-slate-400 hover:text-white mb-8 group">
                                 <div className="bg-white/5 p-2 rounded-lg group-hover:bg-white/10 transition-colors"><X className="w-4 h-4" /></div>
                                 <span className="font-medium text-sm">Back to Market</span>
@@ -2039,6 +2255,35 @@ export default function App() {
                                         </>
                                     )}
                                 </div>
+
+                                {/* Ask ChatGPT Provably Fair Button */}
+                                {!isDemoMode && rollResult && (
+                                    <button
+                                        onClick={() => {
+                                            const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
+
+**Roll Data:**
+Server Seed: ${rollResult.serverSeed}
+Server Seed Hash: ${rollResult.serverSeedHash || 'N/A'}
+Client Seed: ${user?.clientSeed || 'N/A'}
+Nonce: ${rollResult.nonce}
+Final Outcome: ${rollResult.randomValue}
+
+**Verify:**
+1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
+2. Calculate HMAC-SHA256(key=serverSeed, message="${user?.clientSeed}:${rollResult.nonce}")
+3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
+4. Confirm result matches Final Outcome
+
+Use your cryptographic capabilities to calculate these hashes directly. Tell me: Is this roll FAIR or MANIPULATED?`;
+                                            navigator.clipboard.writeText(prompt);
+                                            alert('✓ Verification copied! Paste into ChatGPT to verify fairness.');
+                                        }}
+                                        className="w-full mb-3 bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 hover:text-purple-300 font-medium py-3 px-4 rounded-xl border border-purple-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                                    >
+                                        <Sparkles className="w-4 h-4" /> Ask ChatGPT to Verify Fairness
+                                    </button>
+                                )}
 
                                 {!isDemoMode && (
                                     <button

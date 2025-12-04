@@ -124,18 +124,35 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
             {/* SPINNING STEP */}
             {step === 'SPINNING' && (
-                <div className="w-full relative py-20 animate-fade-in">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl font-bold text-white mb-2">Rolling your Welcome Gift...</h2>
-                        <p className="text-slate-400">Good luck!</p>
+                <div className="w-full h-full relative animate-fade-in">
+                    {/* Title - Positioned at top */}
+                    <div className="absolute top-12 left-0 right-0 text-center z-10">
+                        <h2 className="text-4xl font-bold text-white mb-3 animate-pulse">Rolling your Welcome Gift...</h2>
+                        <p className="text-lg text-slate-400">Good luck!</p>
                     </div>
 
-                    {/* Center Indicator */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[320px] w-[4px] bg-yellow-400 z-30 shadow-[0_0_20px_rgba(250,204,21,1)] pointer-events-none"></div>
+                    {/* LootVibe Watermark Logo - Positioned below title to avoid interference */}
+                    <div className="absolute top-32 left-0 right-0 flex justify-center pointer-events-none z-10">
+                        <div className="text-center animate-[fadeWatermark_6s_ease-out_forwards]">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                                <svg className="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 7L12 3L4 7M20 7L12 11M20 7V17L12 21M12 11L4 7M12 11V21M4 7V17L12 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div className="text-2xl md:text-4xl font-bold">
+                                <span className="text-white">LOOT</span><span className="text-purple-500">VIBE</span>
+                            </div>
+                            <div className="text-[10px] md:text-xs font-medium text-slate-400 tracking-widest mt-0.5">PROVABLY FAIR</div>
+                        </div>
+                    </div>
 
-                    {/* The Reel - Only show when items are loaded */}
+                    {/* Center Indicator - More prominent */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[3px] bg-gradient-to-b from-transparent via-yellow-400 to-transparent z-30 shadow-[0_0_30px_rgba(250,204,21,0.8)] pointer-events-none"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[300px] border-2 border-yellow-400/30 rounded-2xl z-20 pointer-events-none shadow-[0_0_40px_rgba(250,204,21,0.3)]"></div>
+
+                    {/* The Reel - Centered vertically at 50% */}
                     {reelItems.length > 0 && (
-                        <div className="w-full overflow-hidden">
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 overflow-hidden h-[300px] flex items-center">
                             <div
                                 ref={scrollContainerRef}
                                 className="flex items-center"
@@ -145,7 +162,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                                     <div
                                         key={`${item.id}-${index}`}
                                         className={`
-                      relative flex-shrink-0 w-[220px] h-[280px] mx-2 rounded-2xl 
+                      relative flex-shrink-0 w-[220px] h-[280px] mx-2 rounded-2xl
                       bg-[#0b0f19] border-2 border-white/5 flex flex-col items-center justify-center p-6
                       ${RARITY_COLORS[item.rarity]}
                       ${item.rarity === Rarity.LEGENDARY ? 'shadow-[0_0_30px_rgba(234,179,8,0.2)]' : ''}
@@ -210,6 +227,32 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                             className="w-full bg-[#131b2e] text-slate-400 hover:text-white font-bold py-3 rounded-xl border border-white/10 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
                         >
                             <Shield className="w-4 h-4" /> VERIFY FAIRNESS
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
+
+**Roll Data:**
+Server Seed: ${rollResult.serverSeed}
+Server Seed Hash: ${rollResult.serverSeedHash}
+Client Seed: ${clientSeed}
+Nonce: ${rollResult.nonce}
+Final Outcome: ${rollResult.randomValue}
+
+**Verify:**
+1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
+2. Calculate HMAC-SHA256(key=serverSeed, message="${clientSeed}:${rollResult.nonce}")
+3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
+4. Confirm result matches Final Outcome
+
+Use your cryptographic capabilities to calculate these hashes directly. Tell me: Is this roll FAIR or MANIPULATED?`;
+                                navigator.clipboard.writeText(prompt);
+                                alert('✓ Verification copied! Paste into ChatGPT to verify fairness.');
+                            }}
+                            className="w-full bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 hover:text-purple-300 font-medium py-2 px-4 rounded-lg border border-purple-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" /> Ask ChatGPT
                         </button>
                     </div>
                 </div>
