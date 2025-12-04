@@ -10,14 +10,19 @@ async function applyHotfix() {
         await client.connect();
         console.log('✅ Connected to database');
 
-        // Read the emergency hotfix migration
-        const sql = fs.readFileSync('./supabase/migrations/20251204000001_emergency_drop_recursive_policies.sql', 'utf8');
+        // Read and apply the emergency hotfix migrations
+        console.log('🔧 Step 1: Removing recursive policies...');
+        const sql1 = fs.readFileSync('./supabase/migrations/20251204000001_emergency_drop_recursive_policies.sql', 'utf8');
+        await client.query(sql1);
+        console.log('✅ Step 1 complete');
 
-        console.log('🔧 Applying emergency hotfix to remove recursive policies...');
-        await client.query(sql);
+        console.log('🔧 Step 2: Fixing INSERT policy...');
+        const sql2 = fs.readFileSync('./supabase/migrations/20251204000002_fix_user_insert_policy.sql', 'utf8');
+        await client.query(sql2);
+        console.log('✅ Step 2 complete');
 
-        console.log('✅ Hotfix applied successfully!');
-        console.log('🎯 RLS policies fixed - users should now be able to access the site');
+        console.log('✅ All hotfixes applied successfully!');
+        console.log('🎯 RLS policies fixed - users should now be able to create accounts and access the site');
 
     } catch (error) {
         console.error('❌ Error applying hotfix:', error);
