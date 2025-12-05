@@ -242,17 +242,33 @@ export default function App() {
 
     const clerk = useClerk();
 
-    // Sync user balance
+    // Sync user balance via real-time subscription instead of polling
     useEffect(() => {
-        if (user) {
-            const syncUser = async () => {
-                const latestUser = await getUser(user.id);
-                setUser(latestUser);
-            };
-            const interval = setInterval(syncUser, 2000);
-            return () => clearInterval(interval);
-        }
-    }, [user?.id]); // Remove clerk.session dependency to avoid race conditions
+        if (!user?.id) return;
+
+        // Set up real-time subscription to user changes
+        const channel = supabase
+            .channel(`user-${user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'users',
+                    filter: `id=eq.${user.id}`
+                },
+                async (payload) => {
+                    console.log('🔄 User data changed, syncing...', payload);
+                    const latestUser = await getUser(user.id);
+                    setUser(latestUser);
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user?.id]);
 
     // Check for referral code and routes in URL
     useEffect(() => {
