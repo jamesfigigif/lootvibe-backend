@@ -205,6 +205,200 @@ export const AffiliatesPage: React.FC<AffiliatesPageProps> = ({ user, onBack }) 
         }
     };
 
+    // Show public landing page if not logged in
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-[#0b0f19] text-white">
+                {/* Navigation */}
+                <div className="border-b border-white/5 bg-[#131b2e]/50 backdrop-blur-sm">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                        <button
+                            onClick={onBack}
+                            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            Back
+                        </button>
+                    </div>
+                </div>
+
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    {/* Hero Section */}
+                    <div className="mb-16 text-center">
+                        <div className="inline-block px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-6">
+                            <span className="text-emerald-400 text-sm font-bold flex items-center gap-2">
+                                <DollarSign className="w-4 h-4" />
+                                PARTNER PROGRAM
+                            </span>
+                        </div>
+
+                        <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight">
+                            EARN<br />
+                            <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-red-400 text-transparent bg-clip-text">
+                                PASSIVE<br />INCOME
+                            </span>
+                        </h1>
+
+                        <p className="text-lg md:text-xl text-slate-400 max-w-2xl mb-8 mx-auto">
+                            The most rewarding affiliate system in gaming. Refer friends, earn up to <span className="text-white font-bold">10% commission</span> on every wager, and unlock instant crypto loans.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
+                            <div className="flex-1 max-w-md w-full bg-[#131b2e] border border-white/10 rounded-xl px-6 py-4">
+                                <p className="text-xs text-slate-500 mb-1 font-mono">Your Referral Link</p>
+                                <p className="font-mono text-lg text-white">lootvibe.gg/r/YOUR_CODE</p>
+                            </div>
+                            <button className="bg-white text-black font-bold px-8 py-4 rounded-xl hover:bg-slate-100 transition-all flex items-center gap-2 w-full sm:w-auto justify-center">
+                                <Copy className="w-5 h-5" />
+                                COPY
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Mock Earnings Card */}
+                    <div className="mb-12 max-w-4xl mx-auto">
+                        <div className="bg-gradient-to-br from-[#1a2332] to-[#131b2e] rounded-3xl border border-white/5 p-8 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl"></div>
+
+                            <div className="relative">
+                                <div className="flex items-start justify-between mb-8">
+                                    <div>
+                                        <p className="text-slate-400 text-sm uppercase tracking-wide mb-2">ESTIMATED MONTHLY EARNINGS</p>
+                                        <div className="flex items-baseline gap-3">
+                                            <h2 className="text-5xl font-black">$12,450.00</h2>
+                                            <span className="text-emerald-400 font-bold text-lg">+12%</span>
+                                        </div>
+                                    </div>
+                                    <div className="w-16 h-16 rounded-2xl bg-purple-500/20 flex items-center justify-center">
+                                        <TrendingUp className="w-8 h-8 text-purple-400" />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Users className="w-5 h-5 text-emerald-400" />
+                                            <span className="text-white font-medium">Active Referrals</span>
+                                        </div>
+                                        <span className="text-white font-bold text-xl">142</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between py-4 border-b border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <Shield className="w-5 h-5 text-yellow-500" />
+                                            <span className="text-white font-medium">Current Tier</span>
+                                        </div>
+                                        <span className="text-yellow-500 font-black text-xl">GOLD</span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between py-4">
+                                        <div className="flex items-center gap-3">
+                                            <Zap className="w-5 h-5 text-blue-400" />
+                                            <span className="text-white font-medium">Wager Volume</span>
+                                        </div>
+                                        <span className="text-white font-bold text-xl">$245,000</span>
+                                    </div>
+                                </div>
+
+                                <button className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 rounded-xl transition-all text-lg">
+                                    CLAIM EARNINGS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Commission Tiers */}
+                    <div className="mb-16">
+                        <div className="text-center mb-12">
+                            <h2 className="text-4xl font-black mb-4">Affiliate Program</h2>
+                            <p className="text-slate-400 text-lg">Earn commissions by referring friends</p>
+                        </div>
+
+                        <div className="bg-[#1a2332] rounded-2xl p-8 border border-white/5 max-w-4xl mx-auto">
+                            <h3 className="text-2xl font-bold mb-6">Current Tier</h3>
+
+                            <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/5">
+                                <div>
+                                    <div className="text-slate-400 font-mono text-xs mb-1">PROVABLY FAIR</div>
+                                    <div className="text-white font-bold text-lg">200% commission rate</div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                                <div className="bg-[#0b0f19] rounded-xl p-6 text-center">
+                                    <Users className="w-8 h-8 text-blue-400 mx-auto mb-3" />
+                                    <div className="text-slate-400 text-sm mb-1">Referrals</div>
+                                    <div className="text-white font-bold text-2xl">0</div>
+                                </div>
+
+                                <div className="bg-[#0b0f19] rounded-xl p-6 text-center">
+                                    <TrendingUp className="w-8 h-8 text-emerald-400 mx-auto mb-3" />
+                                    <div className="text-slate-400 text-sm mb-1">Total Volume</div>
+                                    <div className="text-white font-bold text-2xl">$0.00</div>
+                                </div>
+
+                                <div className="bg-[#0b0f19] rounded-xl p-6 text-center">
+                                    <DollarSign className="w-8 h-8 text-yellow-500 mx-auto mb-3" />
+                                    <div className="text-slate-400 text-sm mb-1">Unclaimed</div>
+                                    <div className="text-white font-bold text-2xl">$0.00</div>
+                                </div>
+
+                                <div className="bg-[#0b0f19] rounded-xl p-6 text-center">
+                                    <Trophy className="w-8 h-8 text-purple-400 mx-auto mb-3" />
+                                    <div className="text-slate-400 text-sm mb-1">Total Earned</div>
+                                    <div className="text-white font-bold text-2xl">$0.00</div>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={onBack}
+                                className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl transition-all text-lg"
+                            >
+                                SIGN IN TO START EARNING
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Features Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-[#1a2332] rounded-2xl p-8 border border-white/5">
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6">
+                                <BarChart3 className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3">Advanced Analytics</h3>
+                            <p className="text-slate-400 leading-relaxed">
+                                Track every click, sign-up, and wager in real-time. Our dashboard gives you the data you need to optimize your campaigns.
+                            </p>
+                        </div>
+
+                        <div className="bg-[#1a2332] rounded-2xl p-8 border border-white/5">
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center mb-6">
+                                <Gift className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3">Referral Bonuses</h3>
+                            <p className="text-slate-400 leading-relaxed">
+                                Your friends get a <span className="text-white font-bold">5% Deposit Bonus</span> when using your code, ensuring high conversion rates.
+                            </p>
+                        </div>
+
+                        <div className="bg-[#1a2332] rounded-2xl p-8 border border-white/5 relative overflow-hidden">
+                            <div className="absolute top-4 right-4">
+                                <span className="bg-emerald-500 text-white text-xs font-bold px-3 py-1 rounded-full">NEW</span>
+                            </div>
+                            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-6">
+                                <CreditCard className="w-8 h-8 text-white" />
+                            </div>
+                            <h3 className="text-2xl font-bold mb-3">Instant Loans</h3>
+                            <p className="text-slate-400 leading-relaxed mb-4">
+                                Need liquidity for a promotion? Borrow up to <span className="text-white font-bold">800 credits</span> against future earnings instantly.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     if (loading) {
         return (
             <div className="min-h-screen bg-[#0b0f19] text-white flex items-center justify-center">
