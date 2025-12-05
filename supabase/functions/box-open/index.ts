@@ -376,7 +376,8 @@ Deno.serve(async (req) => {
                     item: selectedItem,
                     serverSeed: serverSeed, // Return for client verification
                     serverSeedHash: serverSeedHash,
-                    nonce: nonce + 1, // Return incremented nonce (already updated in DB)
+                    clientSeed: clientSeed, // CRITICAL: Return the clientSeed that was used!
+                    nonce: nonce, // CRITICAL: Return the nonce that was ACTUALLY USED, not incremented!
                     randomValue: randomValue,
                     boxPrice: boxPrice,
                     itemValue: itemValue,
