@@ -1,6 +1,7 @@
 import { Transaction, User } from '../types';
 import { supabase } from './supabaseClient';
 import { generateClientSeed } from './provablyFairService';
+import { generateCoolUsername } from './usernameGenerator';
 import { createClient } from '@supabase/supabase-js';
 
 // Get or create user
@@ -14,7 +15,7 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
             // Return a mock user for local testing
             const mockUser: User = {
                 id: userId,
-                username: `TestUser_${userId.slice(-8)}`,
+                username: `Test${generateCoolUsername()}`,
                 balance: 10000, // Give more balance for testing
                 inventory: [],
                 shipments: [],
@@ -81,8 +82,8 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
         }
 
         // Create new user if not found
-        // Generate a unique username by adding timestamp to avoid conflicts
-        const uniqueUsername = `User_${userId.slice(-8)}_${Date.now().toString().slice(-4)}`;
+        // Generate a cool, unique username like "RedBeam1234"
+        const uniqueUsername = generateCoolUsername();
 
         const newUser: User = {
             id: userId,
@@ -150,7 +151,7 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
         console.warn('⚠️  Database unavailable, using fallback user');
         return {
             id: userId,
-            username: `User_${userId.slice(0, 6)}`,
+            username: generateCoolUsername(),
             balance: 1000,
             inventory: [],
             shipments: [],

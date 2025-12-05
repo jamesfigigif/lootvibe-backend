@@ -73,23 +73,23 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
     // }, [step, onComplete]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-center overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-start md:justify-center overflow-y-auto">
             {/* Background Effects */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#1a2336_0%,#050810_100%)]"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
             {/* INTRO STEP */}
             {step === 'INTRO' && (
-                <div className="relative z-10 max-w-4xl w-full px-6 text-center animate-fade-in">
+                <div className="relative z-10 max-w-4xl w-full px-6 py-8 md:py-0 text-center animate-fade-in">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-bold mb-8 animate-bounce">
                         <Gift className="w-4 h-4" /> WELCOME GIFT FOUND!
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl font-display font-bold text-white mb-6 tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-display font-bold text-white mb-6 tracking-tight">
                         Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">LootVibe</span>
                     </h1>
 
-                    <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-lg md:text-xl text-slate-400 mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                         Experience the thrill of provably fair mystery boxes.
                         We've credited your account with a <span className="text-white font-bold">Free Welcome Box</span> to get you started.
                     </p>
@@ -185,12 +185,12 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
             {/* WINNER STEP */}
             {step === 'WINNER' && rollResult && (
-                <div className="relative z-10 text-center animate-scale-in max-w-2xl px-6">
+                <div className="relative z-10 text-center animate-scale-in max-w-2xl px-6 py-8 md:py-0">
                     <div className="mb-8 relative">
                         <div className="absolute inset-0 bg-emerald-500 blur-[100px] opacity-20"></div>
                         <Sparkles className="w-12 h-12 text-yellow-400 mx-auto mb-4 animate-spin-slow" />
-                        <h2 className="text-6xl font-display font-bold text-white mb-2">YOU WON!</h2>
-                        <div className="text-2xl text-emerald-400 font-bold">${rollResult.item.value.toFixed(2)}</div>
+                        <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-2">YOU WON!</h2>
+                        <div className="text-xl md:text-2xl text-emerald-400 font-bold">${rollResult.item.value.toFixed(2)}</div>
                     </div>
 
                     <div className="bg-[#131b2e] p-8 rounded-3xl border border-emerald-500/30 mb-8 relative overflow-hidden group">
@@ -260,7 +260,7 @@ Use your cryptographic capabilities to calculate these hashes directly. Tell me:
 
             {/* VERIFY STEP */}
             {step === 'VERIFY' && rollResult && (
-                <div className="relative z-10 max-w-2xl w-full px-6 animate-fade-in">
+                <div className="relative z-10 max-w-2xl w-full px-6 py-8 md:py-0 animate-fade-in">
                     <div className="bg-[#131b2e] rounded-3xl p-8 border border-white/10 shadow-2xl">
                         <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
                             <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">

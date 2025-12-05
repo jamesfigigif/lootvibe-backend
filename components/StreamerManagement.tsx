@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, DollarSign, Ban, Check, Star, TrendingUp, Edit, Save, X } from 'lucide-react';
+import { supabase } from '../services/supabaseClient';
 
 interface Streamer {
     id: string;
@@ -39,17 +40,14 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
 
     const fetchStreamers = async () => {
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/streamers`, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, username, email, balance, is_streamer, can_withdraw, streamer_odds_multiplier, streamer_note, avatar')
+                .eq('is_streamer', true)
+                .order('username');
 
-            if (response.ok) {
-                const data = await response.json();
-                setStreamers(data.streamers || []);
-            }
+            if (error) throw error;
+            setStreamers(data || []);
         } catch (error) {
             console.error('Failed to fetch streamers:', error);
         } finally {
@@ -59,17 +57,13 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
 
     const fetchAllUsers = async () => {
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/users`, {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, username, email, balance, is_streamer, can_withdraw, streamer_odds_multiplier, streamer_note, avatar')
+                .order('username');
 
-            if (response.ok) {
-                const data = await response.json();
-                setAllUsers(data.users || []);
-            }
+            if (error) throw error;
+            setAllUsers(data || []);
         } catch (error) {
             console.error('Failed to fetch users:', error);
         }
@@ -82,34 +76,24 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
         }
 
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/streamers/add`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId: newStreamerForm.userId,
-                    oddsMultiplier: newStreamerForm.oddsMultiplier,
-                    allowWithdrawals: newStreamerForm.allowWithdrawals,
-                    note: newStreamerForm.note,
-                    adminUserId: adminUser.id
-                })
+            const { data, error } = await supabase.rpc('set_user_as_streamer', {
+                target_user_id: newStreamerForm.userId,
+                admin_user_id: adminUser.id,
+                odds_multiplier: newStreamerForm.oddsMultiplier,
+                allow_withdrawals: newStreamerForm.allowWithdrawals,
+                admin_note: newStreamerForm.note
             });
 
-            if (response.ok) {
-                alert('User successfully made streamer!');
-                setShowAddStreamer(false);
-                setNewStreamerForm({ userId: '', oddsMultiplier: 2.00, allowWithdrawals: false, note: '' });
-                fetchStreamers();
-                fetchAllUsers();
-            } else {
-                const error = await response.json();
-                alert(`Failed: ${error.error}`);
-            }
+            if (error) throw error;
+
+            alert('User successfully made streamer!');
+            setShowAddStreamer(false);
+            setNewStreamerForm({ userId: '', oddsMultiplier: 2.00, allowWithdrawals: false, note: '' });
+            fetchStreamers();
+            fetchAllUsers();
         } catch (error) {
             console.error('Failed to make streamer:', error);
-            alert('Failed to make streamer');
+            alert(`Failed to make streamer: ${error.message}`);
         }
     };
 
@@ -117,28 +101,19 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
         if (!confirm('Remove streamer status from this user?')) return;
 
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/streamers/remove`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId,
-                    adminUserId: adminUser.id
-                })
+            const { data, error } = await supabase.rpc('remove_streamer_status', {
+                target_user_id: userId,
+                admin_user_id: adminUser.id
             });
 
-            if (response.ok) {
-                alert('Streamer status removed');
-                fetchStreamers();
-                fetchAllUsers();
-            } else {
-                alert('Failed to remove streamer status');
-            }
+            if (error) throw error;
+
+            alert('Streamer status removed');
+            fetchStreamers();
+            fetchAllUsers();
         } catch (error) {
             console.error('Failed to remove streamer:', error);
-            alert('Failed to remove streamer');
+            alert(`Failed to remove streamer: ${error.message}`);
         }
     };
 
@@ -150,56 +125,38 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
         }
 
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/streamers/balance`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId,
-                    newBalance: balance,
-                    adminUserId: adminUser.id
-                })
+            const { data, error } = await supabase.rpc('edit_streamer_balance', {
+                target_user_id: userId,
+                admin_user_id: adminUser.id,
+                new_balance: balance
             });
 
-            if (response.ok) {
-                alert('Balance updated!');
-                setEditingBalance(prev => ({ ...prev, [userId]: '' }));
-                fetchStreamers();
-            } else {
-                alert('Failed to update balance');
-            }
+            if (error) throw error;
+
+            alert('Balance updated!');
+            setEditingBalance(prev => ({ ...prev, [userId]: '' }));
+            fetchStreamers();
         } catch (error) {
             console.error('Failed to update balance:', error);
-            alert('Failed to update balance');
+            alert(`Failed to update balance: ${error.message}`);
         }
     };
 
     const handleToggleWithdrawals = async (userId: string, canWithdraw: boolean) => {
         try {
-            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
-            const response = await fetch(`${backendUrl}/api/admin/streamers/withdrawal`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    userId,
-                    allowWithdraw: !canWithdraw,
-                    adminUserId: adminUser.id
-                })
+            const { data, error } = await supabase.rpc('toggle_user_withdrawal', {
+                target_user_id: userId,
+                admin_user_id: adminUser.id,
+                allow_withdraw: !canWithdraw
             });
 
-            if (response.ok) {
-                alert(`Withdrawals ${!canWithdraw ? 'enabled' : 'disabled'}`);
-                fetchStreamers();
-            } else {
-                alert('Failed to toggle withdrawals');
-            }
+            if (error) throw error;
+
+            alert(`Withdrawals ${!canWithdraw ? 'enabled' : 'disabled'}`);
+            fetchStreamers();
         } catch (error) {
             console.error('Failed to toggle withdrawals:', error);
-            alert('Failed to toggle withdrawals');
+            alert(`Failed to toggle withdrawals: ${error.message}`);
         }
     };
 
@@ -321,7 +278,7 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
             />
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-[#1a2332] border border-purple-500/20 rounded-xl p-4">
                     <div className="flex items-center justify-between">
                         <div>
@@ -354,15 +311,15 @@ export const StreamerManagement: React.FC<StreamerManagementProps> = ({ adminUse
             </div>
 
             {/* Streamers List */}
-            <div className="bg-[#0b0f19] border border-white/5 rounded-xl overflow-hidden">
-                <table className="w-full">
+            <div className="bg-[#0b0f19] border border-white/5 rounded-xl overflow-hidden overflow-x-auto">
+                <table className="w-full min-w-[800px]">
                     <thead className="bg-[#1a2332] border-b border-white/5">
                         <tr>
                             <th className="text-left p-4 text-slate-400 font-medium text-sm">User</th>
                             <th className="text-left p-4 text-slate-400 font-medium text-sm">Balance</th>
                             <th className="text-left p-4 text-slate-400 font-medium text-sm">Odds Boost</th>
                             <th className="text-left p-4 text-slate-400 font-medium text-sm">Withdrawals</th>
-                            <th className="text-left p-4 text-slate-400 font-medium text-sm">Note</th>
+                            <th className="text-left p-4 text-slate-400 font-medium text-sm hidden sm:table-cell">Note</th>
                             <th className="text-right p-4 text-slate-400 font-medium text-sm">Actions</th>
                         </tr>
                     </thead>
