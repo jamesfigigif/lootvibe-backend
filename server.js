@@ -118,14 +118,16 @@ scheduleLiveDrop();
 /**
  * Generate deposit address for a user
  * POST /api/deposits/generate-address
- * Body: { userId, currency }
+ * Body: { currency }
+ * ✅ SECURITY FIX: Added authentication - userId now comes from verified token
  */
-app.post('/api/deposits/generate-address', async (req, res) => {
+app.post('/api/deposits/generate-address', authenticateUser(supabase), async (req, res) => {
     try {
-        const { userId, currency } = req.body;
+        const userId = req.user.id; // ✅ Get userId from authenticated user, not request body
+        const { currency } = req.body;
 
-        if (!userId || !currency) {
-            return res.status(400).json({ error: 'Missing userId or currency' });
+        if (!currency) {
+            return res.status(400).json({ error: 'Missing currency' });
         }
 
         if (!['BTC', 'ETH'].includes(currency)) {
@@ -185,13 +187,15 @@ app.post('/api/deposits/generate-address', async (req, res) => {
 /**
  * Submit a deposit transaction
  * POST /api/deposits/submit
- * Body: { userId, currency, txHash, amount }
+ * Body: { currency, txHash, amount }
+ * ✅ SECURITY FIX: Added authentication - userId now comes from verified token
  */
-app.post('/api/deposits/submit', async (req, res) => {
+app.post('/api/deposits/submit', authenticateUser(supabase), async (req, res) => {
     try {
-        const { userId, currency, txHash, amount } = req.body;
+        const userId = req.user.id; // ✅ Get userId from authenticated user, not request body
+        const { currency, txHash, amount } = req.body;
 
-        if (!userId || !currency || !txHash || !amount) {
+        if (!currency || !txHash || !amount) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
@@ -283,15 +287,18 @@ app.get('/api/admin/live-drops', authenticateAdmin, async (req, res) => {
 /**
  * Get deposit status
  * GET /api/deposits/status/:depositId
+ * ✅ SECURITY FIX: Added authentication and ownership verification
  */
-app.get('/api/deposits/status/:depositId', async (req, res) => {
+app.get('/api/deposits/status/:depositId', authenticateUser(supabase), async (req, res) => {
     try {
         const { depositId } = req.params;
+        const userId = req.user.id; // ✅ Get userId from authenticated user
 
         const { data: deposit, error } = await supabase
             .from('crypto_deposits')
             .select('*')
             .eq('id', depositId)
+            .eq('user_id', userId) // ✅ Verify user owns this deposit
             .single();
 
         if (error || !deposit) {
@@ -316,11 +323,12 @@ app.get('/api/deposits/status/:depositId', async (req, res) => {
 
 /**
  * Get user's deposit history
- * GET /api/deposits/history/:userId
+ * GET /api/deposits/history
+ * ✅ SECURITY FIX: Added authentication - userId from verified token, not URL param
  */
-app.get('/api/deposits/history/:userId', async (req, res) => {
+app.get('/api/deposits/history', authenticateUser(supabase), async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user.id; // ✅ Get userId from authenticated user, not URL param
 
         const { data: deposits, error } = await supabase
             .from('crypto_deposits')
