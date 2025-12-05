@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '../services/supabaseClient';
-import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3, Video } from 'lucide-react';
+import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3, Video, Save, X } from 'lucide-react';
 import { StreamerManagement } from './StreamerManagement';
 
 export const AdminPanel: React.FC = () => {
@@ -32,6 +32,9 @@ export const AdminPanel: React.FC = () => {
     const [newItemValue, setNewItemValue] = useState('');
     const [newItemOdds, setNewItemOdds] = useState('');
     const [savingItem, setSavingItem] = useState(false);
+
+    // User balance editing state
+    const [editingUserBalance, setEditingUserBalance] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
         checkAdminStatus();
@@ -321,6 +324,43 @@ export const AdminPanel: React.FC = () => {
         }
     };
 
+    const handleUpdateUserBalance = async (userId: string, newBalance: string) => {
+        const balance = parseFloat(newBalance);
+        if (isNaN(balance) || balance < 0) {
+            alert('Invalid balance');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ balance })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            alert('Balance updated successfully!');
+            setEditingUserBalance(prev => {
+                const newState = { ...prev };
+                delete newState[userId];
+                return newState;
+            });
+
+            // Refresh users data
+            const { data: usersData } = await supabase
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (usersData) setUsers(usersData);
+
+        } catch (err: any) {
+            console.error('Update balance error:', err);
+            alert(`Failed to update balance: ${err.message}`);
+        }
+    };
+
     const fetchBoxesAnalytics = async () => {
         // Fetch all boxes with their items
         const { data: boxesData, error: boxesError } = await supabase
@@ -505,28 +545,68 @@ export const AdminPanel: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold mb-6">Recent Users</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[600px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
                                             <th className="text-left p-3 text-slate-400">Username</th>
+                                            <th className="text-left p-3 text-slate-400">Email</th>
                                             <th className="text-left p-3 text-slate-400">Balance</th>
                                             <th className="text-left p-3 text-slate-400">Role</th>
-                                            <th className="text-left p-3 text-slate-400">Joined</th>
+                                            <th className="text-left p-3 text-slate-400 hidden md:table-cell">Joined</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {users.map((user) => (
-                                            <tr key={user.id} className="border-b border-white/5">
+                                            <tr key={user.id} className="border-b border-white/5 hover:bg-white/5">
                                                 <td className="p-3 font-mono text-xs">{user.id.substring(0, 8)}...</td>
                                                 <td className="p-3">{user.username}</td>
-                                                <td className="p-3">${parseFloat(user.balance || 0).toFixed(2)}</td>
+                                                <td className="p-3 text-sm text-slate-400">{user.email || '—'}</td>
+                                                <td className="p-3">
+                                                    {editingUserBalance[user.id] !== undefined ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="number"
+                                                                value={editingUserBalance[user.id]}
+                                                                onChange={(e) => setEditingUserBalance({ ...editingUserBalance, [user.id]: e.target.value })}
+                                                                className="w-24 bg-[#1a2332] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                                                                step="0.01"
+                                                            />
+                                                            <button
+                                                                onClick={() => handleUpdateUserBalance(user.id, editingUserBalance[user.id])}
+                                                                className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                                                            >
+                                                                <Save className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setEditingUserBalance(prev => {
+                                                                    const newState = { ...prev };
+                                                                    delete newState[user.id];
+                                                                    return newState;
+                                                                })}
+                                                                className="text-red-400 hover:text-red-300 transition-colors"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-emerald-400 font-mono">${parseFloat(user.balance || 0).toFixed(2)}</span>
+                                                            <button
+                                                                onClick={() => setEditingUserBalance({ ...editingUserBalance, [user.id]: user.balance.toString() })}
+                                                                className="text-slate-400 hover:text-white transition-colors"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="p-3">
                                                     <span className={`px-2 py-1 rounded text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-700/50 text-slate-400'}`}>
                                                         {user.role || 'user'}
                                                     </span>
                                                 </td>
-                                                <td className="p-3 text-slate-400 text-sm">
+                                                <td className="p-3 text-slate-400 text-sm hidden md:table-cell">
                                                     {new Date(user.created_at).toLocaleDateString()}
                                                 </td>
                                             </tr>
@@ -546,7 +626,7 @@ export const AdminPanel: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold mb-6">Deposits</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[700px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
@@ -599,7 +679,7 @@ export const AdminPanel: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold mb-6">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[600px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
