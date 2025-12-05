@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { LootBox, LootItem, Rarity } from '../types';
 import { RARITY_COLORS, RARITY_GRADIENTS } from '../constants';
-import { ChevronRight, Shield, Zap, Gift, Sparkles } from 'lucide-react';
+import { ChevronRight, Shield, Zap, Gift, Sparkles, X } from 'lucide-react';
 
 interface WelcomeOpeningStageProps {
     box: LootBox;
@@ -79,46 +79,57 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#1a2336_0%,#050810_100%)]"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
+            {/* Close Button - Only show on INTRO and WINNER steps */}
+            {(step === 'INTRO' || step === 'WINNER') && (
+                <button
+                    onClick={onComplete}
+                    className="absolute top-4 right-4 z-50 p-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/20 transition-colors group"
+                    aria-label="Close welcome screen"
+                >
+                    <X className="w-5 h-5 text-white group-hover:rotate-90 transition-transform" />
+                </button>
+            )}
+
             {/* INTRO STEP */}
             {step === 'INTRO' && (
-                <div className="relative z-10 max-w-4xl w-full px-6 py-8 md:py-0 text-center animate-fade-in">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-bold mb-8 animate-bounce">
-                        <Gift className="w-4 h-4" /> WELCOME GIFT FOUND!
+                <div className="relative z-10 max-w-4xl w-full px-4 py-6 md:px-6 md:py-8 text-center animate-fade-in">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs md:text-sm font-bold mb-6 md:mb-8 animate-bounce">
+                        <Gift className="w-3 h-3 md:w-4 md:h-4" /> WELCOME GIFT FOUND!
                     </div>
 
-                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-display font-bold text-white mb-6 tracking-tight">
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-display font-bold text-white mb-4 md:mb-6 tracking-tight leading-tight">
                         Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">LootVibe</span>
                     </h1>
 
-                    <p className="text-lg md:text-xl text-slate-400 mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-base md:text-lg lg:text-xl text-slate-400 mb-6 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                         Experience the thrill of provably fair mystery boxes.
                         We've credited your account with a <span className="text-white font-bold">Free Welcome Box</span> to get you started.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12 text-left">
-                        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
-                            <Shield className="w-8 h-8 text-emerald-400 mb-4" />
-                            <h3 className="text-white font-bold text-lg mb-2">Provably Fair</h3>
-                            <p className="text-slate-400 text-sm">Every roll is verified by the blockchain. Zero manipulation.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-8 md:mb-12 text-left max-h-[40vh] md:max-h-none overflow-y-auto">
+                        <div className="bg-white/5 p-4 md:p-6 rounded-xl md:rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
+                            <Shield className="w-6 h-6 md:w-8 md:h-8 text-emerald-400 mb-2 md:mb-4" />
+                            <h3 className="text-white font-bold text-base md:text-lg mb-1 md:mb-2">Provably Fair</h3>
+                            <p className="text-slate-400 text-xs md:text-sm">Every roll is verified by the blockchain. Zero manipulation.</p>
                         </div>
-                        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
-                            <Zap className="w-8 h-8 text-yellow-400 mb-4" />
-                            <h3 className="text-white font-bold text-lg mb-2">Instant Wins</h3>
-                            <p className="text-slate-400 text-sm">Unbox premium items and exchange them for balance instantly.</p>
+                        <div className="bg-white/5 p-4 md:p-6 rounded-xl md:rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
+                            <Zap className="w-6 h-6 md:w-8 md:h-8 text-yellow-400 mb-2 md:mb-4" />
+                            <h3 className="text-white font-bold text-base md:text-lg mb-1 md:mb-2">Instant Wins</h3>
+                            <p className="text-slate-400 text-xs md:text-sm">Unbox premium items and exchange them for balance instantly.</p>
                         </div>
-                        <div className="bg-white/5 p-6 rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
-                            <Gift className="w-8 h-8 text-purple-400 mb-4" />
-                            <h3 className="text-white font-bold text-lg mb-2">Keep What You Win</h3>
-                            <p className="text-slate-400 text-sm">Your winnings are yours to keep. No strings attached.</p>
+                        <div className="bg-white/5 p-4 md:p-6 rounded-xl md:rounded-2xl border border-white/10 backdrop-blur hover:bg-white/10 transition-colors">
+                            <Gift className="w-6 h-6 md:w-8 md:h-8 text-purple-400 mb-2 md:mb-4" />
+                            <h3 className="text-white font-bold text-base md:text-lg mb-1 md:mb-2">Keep What You Win</h3>
+                            <p className="text-slate-400 text-xs md:text-sm">Your winnings are yours to keep. No strings attached.</p>
                         </div>
                     </div>
 
                     <button
                         onClick={startSpin}
-                        className="group relative inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.3)]"
+                        className="group relative inline-flex items-center gap-2 md:gap-3 bg-white text-black px-6 py-3 md:px-8 md:py-4 rounded-xl font-bold text-base md:text-lg hover:scale-105 transition-transform shadow-[0_0_40px_rgba(255,255,255,0.3)]"
                     >
                         <span className="relative z-10">SPIN YOUR FREE BOX</span>
-                        <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <ChevronRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                     </button>
                 </div>
             )}
@@ -170,7 +181,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                     `}
                                     >
                                         <div className="relative w-40 h-40 mb-6">
-                                            <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-2xl" />
+                                            <img src={item.image} alt={item.name} loading="lazy" className="w-full h-full object-contain drop-shadow-2xl" />
                                         </div>
                                         <div className="text-center w-full">
                                             <div className="text-sm font-bold truncate text-white mb-1">{item.name}</div>
@@ -199,6 +210,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                         <img
                             src={rollResult.item.image}
                             alt={rollResult.item.name}
+                            loading="lazy"
                             className="w-48 h-48 object-contain mx-auto mb-6 drop-shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-float"
                         />
                         <h3 className="text-2xl font-bold text-white mb-2">{rollResult.item.name}</h3>
