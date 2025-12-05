@@ -114,27 +114,29 @@ export const RacePage = () => {
         {/* List Section */}
         <div className="max-w-4xl mx-auto px-4 pb-20">
             <div className="bg-[#131b2e] rounded-xl border border-white/5 overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 p-4 text-xs font-bold text-slate-500 border-b border-white/5 uppercase tracking-wider">
+                <div className="grid grid-cols-12 gap-2 md:gap-4 p-4 text-xs font-bold text-slate-500 border-b border-white/5 uppercase tracking-wider">
                     <div className="col-span-1 text-center">Rank</div>
-                    <div className="col-span-5 md:col-span-4">Player</div>
-                    <div className="col-span-3 md:col-span-4 text-right">Wagered</div>
+                    <div className="col-span-4 md:col-span-4">Player</div>
+                    <div className="col-span-4 md:col-span-4 text-right">Wagered</div>
                     <div className="col-span-3 text-right">Prize</div>
                 </div>
-                
+
                 {MOCK_LEADERBOARD.slice(3).map((player, i) => (
-                    <div key={i} className="grid grid-cols-12 gap-4 p-4 items-center border-b border-white/5 hover:bg-white/5 transition-colors">
-                        <div className="col-span-1 text-center font-display font-bold text-slate-400">{player.rank}th</div>
-                        <div className="col-span-5 md:col-span-4 flex items-center gap-3">
-                            <div className="w-8 h-8 rounded bg-slate-800 overflow-hidden">
+                    <div key={i} className="grid grid-cols-12 gap-2 md:gap-4 p-4 items-center border-b border-white/5 hover:bg-white/5 transition-colors">
+                        <div className="col-span-1 text-center font-display font-bold text-slate-400 text-xs md:text-base">{player.rank}th</div>
+                        <div className="col-span-4 md:col-span-4 flex items-center gap-2 md:gap-3">
+                            <div className="w-6 h-6 md:w-8 md:h-8 rounded bg-slate-800 overflow-hidden flex-shrink-0">
                                 <img src={player.avatar} className="w-full h-full" />
                             </div>
-                            <span className="font-bold">{player.user}</span>
+                            <span className="font-bold text-xs md:text-base truncate">{player.user}</span>
                         </div>
-                        <div className="col-span-3 md:col-span-4 text-right font-mono text-slate-300">
-                            <span className="text-slate-500 text-[10px] mr-1">UNBOXED</span>
-                            ${player.wagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <div className="col-span-4 md:col-span-4 text-right font-mono text-slate-300 text-xs md:text-base">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-end">
+                                <span className="text-slate-500 text-[9px] md:text-[10px] md:mr-1">UNBOXED</span>
+                                <span className="whitespace-nowrap">${player.wagered.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
                         </div>
-                        <div className="col-span-3 text-right font-mono font-bold text-emerald-400">
+                        <div className="col-span-3 text-right font-mono font-bold text-emerald-400 text-xs md:text-base">
                             ${player.prize.toLocaleString()}
                         </div>
                     </div>
