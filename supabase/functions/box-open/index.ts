@@ -314,33 +314,10 @@ Deno.serve(async (req) => {
             console.error('Failed to add item to inventory:', invError);
             // Don't fail the request, but log it
         } else {
-            // Create notification when item is successfully added to inventory
-            try {
-                const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                await supabaseAdmin
-                    .from('notifications')
-                    .insert({
-                        id: notificationId,
-                        user_id: userId,
-                        type: 'INVENTORY_ADDED',
-                        title: 'Item Added to Inventory',
-                        message: `${selectedItem.name} has been added to your inventory!`,
-                        data: {
-                            item_id: inventoryId,
-                            item_name: selectedItem.name,
-                            item_image: selectedItem.image,
-                            item_value: itemValue,
-                            box_id: boxId,
-                            box_name: boxData.name
-                        },
-                        read: false,
-                        created_at: new Date().toISOString()
-                    });
-                console.log('✅ Notification created for inventory addition');
-            } catch (notifError) {
-                console.error('Failed to create notification:', notifError);
-                // Don't fail the request, but log it
-            }
+            console.log('✅ Item added to inventory (notification will be created if user keeps item)');
+            // NOTE: Notification is NOT created here - it's created by the frontend
+            // when user clicks "Add to Inventory" (handleKeepItem function)
+            // This prevents notifications when user clicks "Claim Cash" instead
         }
 
         // 13. Add to live_drops (for real-time feed)
