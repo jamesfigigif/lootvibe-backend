@@ -11,11 +11,12 @@ interface WelcomeOpeningStageProps {
         item: LootItem;
         serverSeed: string;
         serverSeedHash: string;
+        clientSeed?: string; // Add clientSeed to rollResult
         nonce: number;
         randomValue: number;
         preGeneratedReel?: LootItem[];
     } | null;
-    clientSeed?: string;
+    clientSeed?: string; // Kept for backwards compatibility
 }
 
 export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, winner, onComplete, rollResult, clientSeed }) => {
@@ -231,18 +232,19 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
                         <button
                             onClick={() => {
+                                const actualClientSeed = rollResult.clientSeed || clientSeed;
                                 const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
 
 **Roll Data:**
 Server Seed: ${rollResult.serverSeed}
 Server Seed Hash: ${rollResult.serverSeedHash}
-Client Seed: ${clientSeed}
+Client Seed: ${actualClientSeed}
 Nonce: ${rollResult.nonce}
 Final Outcome: ${rollResult.randomValue}
 
 **Verify:**
 1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
-2. Calculate HMAC-SHA256(key=serverSeed, message="${clientSeed}:${rollResult.nonce}")
+2. Calculate HMAC-SHA256(key=serverSeed, message="${actualClientSeed}:${rollResult.nonce}")
 3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
 4. Confirm result matches Final Outcome
 
@@ -291,7 +293,7 @@ Use your cryptographic capabilities to calculate these hashes directly. Tell me:
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
                                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Client Seed</div>
-                                    <div className="font-mono text-xs text-slate-300 break-all">{clientSeed}</div>
+                                    <div className="font-mono text-xs text-slate-300 break-all">{rollResult.clientSeed || clientSeed}</div>
                                 </div>
                                 <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
                                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Nonce</div>
@@ -309,18 +311,19 @@ Use your cryptographic capabilities to calculate these hashes directly. Tell me:
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={() => {
+                                    const actualClientSeed = rollResult.clientSeed || clientSeed;
                                     const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
 
 **Roll Data:**
 Server Seed: ${rollResult.serverSeed}
 Server Seed Hash: ${rollResult.serverSeedHash}
-Client Seed: ${clientSeed}
+Client Seed: ${actualClientSeed}
 Nonce: ${rollResult.nonce}
 Final Outcome: ${rollResult.randomValue}
 
 **Verify:**
 1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
-2. Calculate HMAC-SHA256(key=serverSeed, message="${clientSeed}:${rollResult.nonce}")
+2. Calculate HMAC-SHA256(key=serverSeed, message="${actualClientSeed}:${rollResult.nonce}")
 3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
 4. Confirm result matches Final Outcome
 
