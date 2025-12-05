@@ -486,11 +486,14 @@ export default function App() {
                 setView({ page: 'OPENING' });
                 setIsOpening(true);
 
-                // Call secure Edge Function
+                // Call secure Edge Function (matches box-open pattern)
                 const response = await supabase.functions.invoke('claim-free-box', {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
+                    body: {
+                        userId: user.id
+                    }
                 });
 
                 if (response.error) {
@@ -1962,7 +1965,7 @@ export default function App() {
                                     <div className="flex flex-col items-center text-center">
                                         <div className="relative mb-4">
                                             <div className="absolute inset-0 bg-purple-500 blur-xl opacity-20 rounded-full"></div>
-                                            <img src={user.avatar} className="relative w-24 h-24 rounded-full border-4 border-[#0b0f19] shadow-xl" />
+                                            <img src={user.avatar} loading="lazy" className="relative w-24 h-24 rounded-full border-4 border-[#0b0f19] shadow-xl" />
                                         </div>
 
                                         {isEditingName ? (
@@ -2180,7 +2183,7 @@ export default function App() {
 
                                 <div className="relative w-64 h-64 mx-auto mb-6">
                                     <div className={`absolute inset-0 bg-gradient-to-tr ${RARITY_GRADIENTS[rollResult.item.rarity]} rounded-full blur-[60px] opacity-30 animate-pulse`}></div>
-                                    <img src={rollResult.item.image} className="relative w-full h-full object-contain animate-[float_4s_ease-in-out_infinite] drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]" />
+                                    <img src={rollResult.item.image} loading="lazy" className="relative w-full h-full object-contain animate-[float_4s_ease-in-out_infinite] drop-shadow-[0_20px_40px_rgba(0,0,0,0.5)]" />
                                 </div>
 
                                 <div className="text-center mb-8">

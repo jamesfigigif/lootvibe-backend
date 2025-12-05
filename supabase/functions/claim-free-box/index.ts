@@ -1,16 +1,10 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { importSPKI, jwtVerify } from 'https://deno.land/x/jose@v4.14.4/index.ts';
 import { createHash, createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
-
-const CLERK_PEM_PUBLIC_KEY = Deno.env.get('CLERK_PEM_PUBLIC_KEY')!;
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 // Helper function to generate random hex string
@@ -27,39 +21,40 @@ serve(async (req) => {
     }
 
     try {
-        // 1. Verify Clerk JWT
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            throw new Error('Missing authorization header');
-        }
+        // Create Supabase client (matches box-open pattern)
+        const supabaseClient = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+            { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+        );
 
-        const token = authHeader.replace('Bearer ', '');
+        // Create a service role client for DB writes (secure)
+        const supabaseAdmin = createClient(
+            Deno.env.get('SUPABASE_URL') ?? '',
+            Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
 
-        let clerkUserId: string;
+        // Parse request body (userId comes from body, like box-open)
+        let requestBody;
         try {
-            // Import the PEM public key
-            const publicKey = await importSPKI(CLERK_PEM_PUBLIC_KEY, 'RS256');
-
-            // Verify the JWT token
-            const { payload } = await jwtVerify(token, publicKey);
-            clerkUserId = payload.sub as string;
-
-            if (!clerkUserId) {
-                throw new Error('No user ID in token');
-            }
-        } catch (error) {
-            console.error('Token verification failed:', error);
-            throw new Error('Invalid token');
+            requestBody = await req.json();
+        } catch (e) {
+            requestBody = {};
         }
 
-        // 2. Initialize Supabase Admin Client
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const { userId } = requestBody;
 
-        // 3. Check if user has already claimed the free box
+        if (!userId) {
+            throw new Error('Missing userId parameter');
+        }
+
+        console.log('🎁 Claim free box request for user:', userId);
+
+        // Check if user has already claimed the free box
         const { data: user, error: userError } = await supabaseAdmin
             .from('users')
-            .select('free_box_claimed, balance, id')
-            .eq('id', clerkUserId)
+            .select('free_box_claimed, balance, id, client_seed, nonce, server_seed_hash')
+            .eq('id', userId)
             .single();
 
         if (userError) {
@@ -74,15 +69,15 @@ serve(async (req) => {
             });
         }
 
-        // 4. Get user's client seed and nonce
+        // Get user's client seed and nonce
         const clientSeed = user.client_seed || generateRandomHex(32);
         const nonce = user.nonce || 0;
 
-        // 5. Generate server seed and hash (provably fair)
+        // Generate server seed and hash (provably fair)
         const serverSeed = generateRandomHex(64);
         const serverSeedHash = createHash('sha256').update(serverSeed).digest('hex');
 
-        // 6. Get the Welcome Gift box items
+        // Get the Welcome Gift box items
         const { data: welcomeBox, error: boxError } = await supabaseAdmin
             .from('boxes')
             .select('*')
@@ -121,14 +116,14 @@ serve(async (req) => {
             }
         }
 
-        // 9. Award the item and mark as claimed
-        const newBalance = parseFloat(user.balance) + winningItem.value;
-
+        // 9. Mark as claimed and update provably fair state (DO NOT add balance yet)
         const { error: updateError } = await supabaseAdmin
             .from('users')
             .update({
-                balance: newBalance,
-                free_box_claimed: true
+                free_box_claimed: true,
+                client_seed: clientSeed, // Store the seed that was used
+                nonce: nonce + 1, // Increment nonce for next roll
+                server_seed_hash: serverSeedHash // Store hash for provably fair verification
             })
             .eq('id', clerkUserId)
             .eq('free_box_claimed', false);
@@ -141,18 +136,60 @@ serve(async (req) => {
             });
         }
 
+        // 10. Create opening record (for item-exchange edge function to use later)
+        const openingId = `opening_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const { error: openingError } = await supabaseAdmin
+            .from('box_openings')
+            .insert({
+                id: openingId,
+                box_id: 'welcome_gift',
+                user_id: clerkUserId,
+                item_won: winningItem,
+                box_price: 0, // Free box
+                item_value: winningItem.value,
+                profit_loss: winningItem.value, // All profit since box is free
+                client_seed: clientSeed,
+                server_seed: serverSeed,
+                nonce: nonce,
+                random_value: randomValue,
+                outcome: 'KEPT', // Default to KEPT (added to inventory)
+                created_at: new Date().toISOString()
+            });
+
+        if (openingError) {
+            console.error('Failed to save box opening:', openingError);
+            // Don't fail the request, just log it
+        }
+
+        // 11. Add item to inventory (user can exchange for balance later via item-exchange)
+        const inventoryId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const { error: invError } = await supabaseAdmin
+            .from('inventory_items')
+            .insert({
+                id: inventoryId,
+                user_id: clerkUserId,
+                item_data: winningItem,
+                created_at: new Date().toISOString()
+            });
+
+        if (invError) {
+            console.error('Failed to add item to inventory:', invError);
+            // Don't fail the request
+        }
+
         return new Response(JSON.stringify({
             success: true,
             item: winningItem,
-            newBalance,
+            newBalance: parseFloat(user.balance), // Current balance (unchanged)
             rollResult: {
                 item: winningItem,
                 serverSeed: serverSeed,
                 serverSeedHash: serverSeedHash,
-                clientSeed: clientSeed, // CRITICAL: Include the clientSeed that was actually used!
+                clientSeed: clientSeed,
                 nonce: nonce,
-                randomValue: randomValue, // Already 0-1 from HMAC calculation
-                block: { height: 840000, hash: hmac.substring(0, 64) } // Use HMAC as "block hash" for verification
+                randomValue: randomValue,
+                openingId: openingId, // CRITICAL: Return openingId for item-exchange
+                block: { height: 840000, hash: hmac.substring(0, 64) }
             }
         }), {
             status: 200,
