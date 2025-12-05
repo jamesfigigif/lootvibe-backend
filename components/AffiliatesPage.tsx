@@ -397,7 +397,7 @@ export const AffiliatesPage: React.FC<AffiliatesPageProps> = ({ user, onBack }) 
                                         >
                                             <div>
                                                 <p className="font-medium">
-                                                    {referral.users?.username || 'Unknown User'}
+                                                    {referral.referred_user?.username || 'Unknown User'}
                                                 </p>
                                                 <p className="text-sm text-slate-400">
                                                     Joined {new Date(referral.created_at).toLocaleDateString()}
