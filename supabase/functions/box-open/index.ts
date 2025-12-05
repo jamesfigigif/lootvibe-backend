@@ -41,11 +41,11 @@ Deno.serve(async (req) => {
             throw new Error(`Missing required parameters. Received: boxId=${!!boxId}, userId=${!!userId}, clientSeed=${!!clientSeed}, nonce=${nonce !== undefined}`)
         }
 
-        // 1. Verify user exists and get current balance
+        // 1. Verify user exists and get current balance + streamer status
         console.log('🔍 Looking up user:', userId);
         const { data: userData, error: userError } = await supabaseAdmin
             .from('users')
-            .select('id, balance, client_seed, nonce, server_seed_hash')
+            .select('id, balance, client_seed, nonce, server_seed_hash, is_streamer, streamer_odds_multiplier')
             .eq('id', userId)
             .single()
 
@@ -184,15 +184,40 @@ Deno.serve(async (req) => {
         // 7. Select Item based on weights/odds (provably fair)
         const items = boxData.items as any[];
 
-        // Calculate total odds
-        const totalOdds = items.reduce((acc, item) => acc + (item.odds || 1), 0);
+        // Check if user is a streamer and apply odds multiplier (silently)
+        const isStreamer = userData.is_streamer || false;
+        const oddsMultiplier = isStreamer ? (parseFloat(userData.streamer_odds_multiplier) || 1.0) : 1.0;
 
-        // Select item based on cumulative probability
+        // Apply streamer multiplier to high-value items only (items worth more than box price)
+        // This gives streamers better chances at rare/valuable items
+        const adjustedItems = items.map(item => {
+            const itemValue = parseFloat(item.value || 0);
+            const baseOdds = item.odds || 1;
+
+            // Apply multiplier only to items worth more than the box price (rare items)
+            // Regular items keep their normal odds
+            let adjustedOdds = baseOdds;
+            if (isStreamer && oddsMultiplier > 1.0 && itemValue >= boxPrice) {
+                adjustedOdds = baseOdds * oddsMultiplier;
+            }
+
+            return {
+                ...item,
+                originalOdds: baseOdds,
+                adjustedOdds: adjustedOdds
+            };
+        });
+
+        // Calculate total odds (with adjustments for streamers)
+        const totalOdds = adjustedItems.reduce((acc, item) => acc + item.adjustedOdds, 0);
+
+        // Select item based on cumulative probability (SAME random value, different odds ranges)
+        // This keeps the provably fair system intact - the random number is still verifiable
         let cumulativeProbability = 0;
-        let selectedItem = items[items.length - 1]; // Fallback to last item
+        let selectedItem = adjustedItems[adjustedItems.length - 1]; // Fallback to last item
 
-        for (const item of items) {
-            const probability = (item.odds || 1) / totalOdds;
+        for (const item of adjustedItems) {
+            const probability = item.adjustedOdds / totalOdds;
             cumulativeProbability += probability;
 
             if (randomValue <= cumulativeProbability) {
@@ -256,6 +281,7 @@ Deno.serve(async (req) => {
                 server_seed: serverSeed, // Store actual seed for verification
                 nonce: nonce,
                 random_value: randomValue,
+                odds_multiplier: oddsMultiplier, // Log multiplier for transparency
                 outcome: 'KEPT', // Default to KEPT, user can change later
                 created_at: new Date().toISOString()
             });
@@ -288,33 +314,10 @@ Deno.serve(async (req) => {
             console.error('Failed to add item to inventory:', invError);
             // Don't fail the request, but log it
         } else {
-            // Create notification when item is successfully added to inventory
-            try {
-                const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                await supabaseAdmin
-                    .from('notifications')
-                    .insert({
-                        id: notificationId,
-                        user_id: userId,
-                        type: 'INVENTORY_ADDED',
-                        title: 'Item Added to Inventory',
-                        message: `${selectedItem.name} has been added to your inventory!`,
-                        data: {
-                            item_id: inventoryId,
-                            item_name: selectedItem.name,
-                            item_image: selectedItem.image,
-                            item_value: itemValue,
-                            box_id: boxId,
-                            box_name: boxData.name
-                        },
-                        read: false,
-                        created_at: new Date().toISOString()
-                    });
-                console.log('✅ Notification created for inventory addition');
-            } catch (notifError) {
-                console.error('Failed to create notification:', notifError);
-                // Don't fail the request, but log it
-            }
+            console.log('✅ Item added to inventory (notification will be created if user keeps item)');
+            // NOTE: Notification is NOT created here - it's created by the frontend
+            // when user clicks "Add to Inventory" (handleKeepItem function)
+            // This prevents notifications when user clicks "Claim Cash" instead
         }
 
         // 13. Add to live_drops (for real-time feed)
@@ -350,7 +353,8 @@ Deno.serve(async (req) => {
                     item: selectedItem,
                     serverSeed: serverSeed, // Return for client verification
                     serverSeedHash: serverSeedHash,
-                    nonce: nonce + 1, // Return incremented nonce (already updated in DB)
+                    clientSeed: clientSeed, // CRITICAL: Return the clientSeed that was used!
+                    nonce: nonce, // CRITICAL: Return the nonce that was ACTUALLY USED, not incremented!
                     randomValue: randomValue,
                     boxPrice: boxPrice,
                     itemValue: itemValue,

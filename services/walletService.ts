@@ -1,11 +1,46 @@
 import { Transaction, User } from '../types';
 import { supabase } from './supabaseClient';
 import { generateClientSeed } from './provablyFairService';
+import { generateCoolUsername } from './usernameGenerator';
 import { createClient } from '@supabase/supabase-js';
 
 // Get or create user
 export const getUser = async (userId: string = 'user-1', clerkToken?: string, email?: string): Promise<User> => {
     try {
+        // Skip database entirely in local dev mode - use mock data for testing
+        const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        if (isLocalDev) {
+            console.log('🔧 Local dev mode - using mock user data');
+            // Return a mock user for local testing
+            const mockUser: User = {
+                id: userId,
+                username: `Test${generateCoolUsername()}`,
+                balance: 10000, // Give more balance for testing
+                inventory: [],
+                shipments: [],
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
+                clientSeed: generateClientSeed(),
+                nonce: 0,
+                freeBoxClaimed: false,
+                role: 'user',
+            };
+
+            // Store in localStorage to persist across page refreshes during testing
+            const storageKey = `lootvibe_local_user_${userId}`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                try {
+                    const parsed = JSON.parse(stored);
+                    return { ...mockUser, ...parsed };
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
+            localStorage.setItem(storageKey, JSON.stringify(mockUser));
+            return mockUser;
+        }
+
         // Try to fetch existing user with all related data in parallel
         const [userResult, inventoryResult, shipmentsResult] = await Promise.all([
             supabase.from('users').select('*').eq('id', userId).single(),
@@ -39,17 +74,21 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
                 serverSeedHash: existingUser.server_seed_hash,
                 freeBoxClaimed: existingUser.free_box_claimed || false,
                 role: existingUser.role || 'user',
+                is_streamer: existingUser.is_streamer || false,
+                streamer_odds_multiplier: existingUser.streamer_odds_multiplier ? parseFloat(existingUser.streamer_odds_multiplier) : undefined,
+                can_withdraw: existingUser.can_withdraw !== undefined ? existingUser.can_withdraw : true,
+                streamer_note: existingUser.streamer_note || undefined,
             };
         }
 
         // Create new user if not found
-        // Generate a unique username by adding timestamp to avoid conflicts
-        const uniqueUsername = `User_${userId.slice(-8)}_${Date.now().toString().slice(-4)}`;
+        // Generate a cool, unique username like "RedBeam1234"
+        const uniqueUsername = generateCoolUsername();
 
         const newUser: User = {
             id: userId,
             username: uniqueUsername,
-            balance: 1000, // Starting balance
+            balance: 0, // Starting balance - users get balance from welcome box
             inventory: [],
             shipments: [],
             avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId}`,
@@ -59,8 +98,11 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
 
         try {
             // Create authenticated client if we have a Clerk token
+            // Skip token auth in local development (localhost) where Clerk JWT template may not be configured
             let clientToUse = supabase;
-            if (clerkToken) {
+            const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+            if (clerkToken && !isLocalDev) {
                 console.log('🔑 Creating user with Clerk token');
                 const SUPABASE_URL = import.meta.env?.VITE_SUPABASE_URL || 'https://hpflcuyxmwzrknxjgavd.supabase.co';
                 const SUPABASE_ANON_KEY = import.meta.env?.VITE_SUPABASE_ANON_KEY || '';
@@ -72,6 +114,8 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
                         }
                     }
                 });
+            } else if (isLocalDev) {
+                console.log('🔧 Local dev mode - using anon client without Clerk token');
             }
 
             const { error: insertError } = await clientToUse
@@ -107,7 +151,7 @@ export const getUser = async (userId: string = 'user-1', clerkToken?: string, em
         console.warn('⚠️  Database unavailable, using fallback user');
         return {
             id: userId,
-            username: `User_${userId.slice(0, 6)}`,
+            username: generateCoolUsername(),
             balance: 1000,
             inventory: [],
             shipments: [],
@@ -227,6 +271,27 @@ export const getTransactions = async (userId: string = 'user-1'): Promise<Transa
 // For critical state changes, use Supabase Edge Functions instead.
 export const updateUserState = async (userId: string = 'user-1', updates: Partial<Omit<User, 'id' | 'shipments'>>) => {
     try {
+        // Handle local dev mode - update localStorage instead of database
+        const isLocalDev = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+        if (isLocalDev) {
+            console.log('🔧 Local dev mode - updating localStorage user data');
+            const storageKey = `lootvibe_local_user_${userId}`;
+            const stored = localStorage.getItem(storageKey);
+            if (stored) {
+                try {
+                    const current = JSON.parse(stored);
+                    const updated = { ...current, ...updates };
+                    localStorage.setItem(storageKey, JSON.stringify(updated));
+                    console.log('✅ Local user data updated:', updates);
+                    return;
+                } catch (e) {
+                    console.error('Error updating local user:', e);
+                }
+            }
+            return;
+        }
+
         const dbUpdates: any = {};
 
         if (updates.username !== undefined) dbUpdates.username = updates.username;

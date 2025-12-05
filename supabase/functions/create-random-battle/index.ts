@@ -13,22 +13,28 @@ serve(async (req) => {
     }
 
     try {
+        console.log('🎲 Creating random battle...');
+
         // Create a service role client for DB writes (secure)
         const supabaseAdmin = createClient(
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         )
 
-        // Get all boxes with price under $250
+        console.log('📦 Fetching boxes...');
+        // Get all active boxes
         const { data: boxes, error: boxesError } = await supabaseAdmin
             .from('boxes')
-            .select('id, name, price, sale_price, items')
-            .or('enabled.eq.true,active.eq.true')
+            .select('id, name, price, sale_price, items, active')
+            .eq('active', true)
             .order('created_at', { ascending: false })
 
         if (boxesError) {
+            console.error('❌ Failed to fetch boxes:', boxesError);
             throw new Error(`Failed to fetch boxes: ${boxesError.message}`)
         }
+
+        console.log(`✅ Found ${boxes?.length || 0} boxes`);
 
         if (!boxes || boxes.length === 0) {
             return new Response(
@@ -37,10 +43,12 @@ serve(async (req) => {
             )
         }
 
-        // Filter boxes by price (use sale_price if available, otherwise price)
+        // Filter boxes by price and exclude 1% boxes (use sale_price if available, otherwise price)
         const affordableBoxes = boxes.filter(box => {
             const price = parseFloat(box.sale_price || box.price || '0')
-            return price > 0 && price < 250
+            // Exclude 1% boxes that have 99% chance of one item (boring for battles)
+            const isOnePercentBox = box.name.includes('1%') || box.name.includes('RTX 1%') || box.name.includes('RICH CLUB')
+            return price > 0 && price < 250 && !isOnePercentBox
         })
 
         if (affordableBoxes.length === 0) {
@@ -169,8 +177,16 @@ serve(async (req) => {
 
     } catch (error) {
         console.error('❌ Error creating random battle:', error)
+        const errorDetails = {
+            success: false,
+            error: error.message,
+            stack: error.stack,
+            name: error.name,
+            details: error
+        };
+        console.error('Full error details:', JSON.stringify(errorDetails, null, 2));
         return new Response(
-            JSON.stringify({ success: false, error: error.message }),
+            JSON.stringify(errorDetails),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
         )
     }

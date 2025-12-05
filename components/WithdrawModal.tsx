@@ -13,7 +13,8 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({ isOpen, onClose, u
     const [currency, setCurrency] = useState<'BTC' | 'ETH'>('BTC');
     const [loading, setLoading] = useState(false);
 
-    const MIN_WITHDRAWAL = 25;
+    const IS_TESTNET = (import.meta as any).env.VITE_CRYPTO_TESTNET === 'true';
+    const MIN_WITHDRAWAL = IS_TESTNET ? 1 : 25; // Lower minimum for testnet
 
     const handleSubmit = async () => {
         const withdrawAmount = parseFloat(amount);
@@ -48,6 +49,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({ isOpen, onClose, u
                     userId: user.id,
                     amount: withdrawAmount,
                     currency,
+                    testnet: IS_TESTNET,
                     address
                 })
             });
@@ -83,11 +85,18 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({ isOpen, onClose, u
                     >
                         <X className="w-6 h-6" />
                     </button>
-                    <h2 className="text-2xl font-bold text-white mb-2">
-                        Withdraw Funds
-                    </h2>
+                    <div className="flex items-center gap-2 mb-2">
+                        <h2 className="text-2xl font-bold text-white">
+                            Withdraw Funds
+                        </h2>
+                        {IS_TESTNET && (
+                            <span className="px-2 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md uppercase">
+                                Testnet
+                            </span>
+                        )}
+                    </div>
                     <p className="text-sm text-slate-400">
-                        Request a withdrawal to your crypto wallet
+                        {IS_TESTNET ? 'Test withdrawals on testnet' : 'Request a withdrawal to your crypto wallet'}
                     </p>
                 </div>
 

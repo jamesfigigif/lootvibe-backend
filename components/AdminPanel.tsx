@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '../services/supabaseClient';
-import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Users, DollarSign, Package, TrendingUp, Shield, Settings, FileText, LogOut, Search, Ban, CheckCircle, XCircle, Eye, Edit, AlertTriangle, Box, Plus, Trash2, BarChart3, Video, Save, X } from 'lucide-react';
+import { StreamerManagement } from './StreamerManagement';
 
 export const AdminPanel: React.FC = () => {
     const { user: clerkUser, isLoaded } = useUser();
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'deposits' | 'shipments' | 'withdrawals' | 'transactions' | 'boxes' | 'settings'>('dashboard');
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'streamers' | 'deposits' | 'shipments' | 'withdrawals' | 'transactions' | 'boxes' | 'settings'>('dashboard');
 
     // Data states
     const [stats, setStats] = useState<any>(null);
@@ -23,6 +24,17 @@ export const AdminPanel: React.FC = () => {
     const [autoWithdrawEnabled, setAutoWithdrawEnabled] = useState(false);
     const [autoWithdrawLimit, setAutoWithdrawLimit] = useState(100);
     const [savingSettings, setSavingSettings] = useState(false);
+
+    // Item management states
+    const [selectedBox, setSelectedBox] = useState<any>(null);
+    const [showAddItemModal, setShowAddItemModal] = useState(false);
+    const [newItemName, setNewItemName] = useState('');
+    const [newItemValue, setNewItemValue] = useState('');
+    const [newItemOdds, setNewItemOdds] = useState('');
+    const [savingItem, setSavingItem] = useState(false);
+
+    // User balance editing state
+    const [editingUserBalance, setEditingUserBalance] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
         checkAdminStatus();
@@ -162,11 +174,11 @@ export const AdminPanel: React.FC = () => {
                     break;
                 case 'settings':
                     // Fetch current settings from backend
-                    const settingsResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings/public`);
+                    const settingsResponse = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings`);
                     if (settingsResponse.ok) {
                         const settingsData = await settingsResponse.json();
-                        setAutoWithdrawEnabled(settingsData.auto_approve_withdrawals || false);
-                        setAutoWithdrawLimit(settingsData.manual_approval_threshold || 100);
+                        setAutoWithdrawEnabled(settingsData.settings?.auto_approve_withdrawals || false);
+                        setAutoWithdrawLimit(parseFloat(settingsData.settings?.manual_approval_threshold) || 100);
                     }
                     break;
             }
@@ -205,14 +217,16 @@ export const AdminPanel: React.FC = () => {
             setSavingSettings(true);
             setError(null);
 
-            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings/update`, {
-                method: 'POST',
+            const response = await fetch(`${import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001'}/api/admin/settings`, {
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    auto_approve_withdrawals: autoWithdrawEnabled,
-                    manual_approval_threshold: autoWithdrawLimit
+                    settings: {
+                        auto_approve_withdrawals: autoWithdrawEnabled,
+                        manual_approval_threshold: autoWithdrawLimit
+                    }
                 })
             });
 
@@ -230,6 +244,120 @@ export const AdminPanel: React.FC = () => {
             setError(err.message || 'Failed to save settings');
         } finally {
             setSavingSettings(false);
+        }
+    };
+
+    const handleAddItem = async () => {
+        if (!selectedBox || !newItemName || !newItemValue || !newItemOdds) {
+            setError('Please fill in all fields');
+            return;
+        }
+
+        try {
+            setSavingItem(true);
+            setError(null);
+
+            // Create new item with placeholder image
+            const newItem = {
+                id: `item_${Date.now()}`,
+                name: newItemName,
+                value: parseFloat(newItemValue),
+                odds: parseFloat(newItemOdds),
+                image: 'https://via.placeholder.com/150?text=' + encodeURIComponent(newItemName),
+                rarity: newItemValue >= 1000 ? 'LEGENDARY' : newItemValue >= 500 ? 'EPIC' : newItemValue >= 100 ? 'RARE' : newItemValue >= 50 ? 'UNCOMMON' : 'COMMON'
+            };
+
+            // Add item to box's items array
+            const updatedItems = [...selectedBox.items, newItem];
+
+            // Update box in database
+            const { error: updateError } = await supabase
+                .from('boxes')
+                .update({ items: updatedItems })
+                .eq('id', selectedBox.id);
+
+            if (updateError) throw updateError;
+
+            // Refresh boxes data
+            await fetchBoxesAnalytics();
+
+            // Reset form and close modal
+            setNewItemName('');
+            setNewItemValue('');
+            setNewItemOdds('');
+            setShowAddItemModal(false);
+            setSelectedBox(null);
+
+            console.log('✅ Item added successfully');
+        } catch (err: any) {
+            console.error('Add item error:', err);
+            setError(err.message || 'Failed to add item');
+        } finally {
+            setSavingItem(false);
+        }
+    };
+
+    const handleDeleteItem = async (box: any, itemIndex: number) => {
+        if (!confirm('Are you sure you want to delete this item?')) return;
+
+        try {
+            setError(null);
+
+            // Remove item from box's items array
+            const updatedItems = box.items.filter((_: any, idx: number) => idx !== itemIndex);
+
+            // Update box in database
+            const { error: updateError } = await supabase
+                .from('boxes')
+                .update({ items: updatedItems })
+                .eq('id', box.id);
+
+            if (updateError) throw updateError;
+
+            // Refresh boxes data
+            await fetchBoxesAnalytics();
+
+            console.log('✅ Item deleted successfully');
+        } catch (err: any) {
+            console.error('Delete item error:', err);
+            setError(err.message || 'Failed to delete item');
+        }
+    };
+
+    const handleUpdateUserBalance = async (userId: string, newBalance: string) => {
+        const balance = parseFloat(newBalance);
+        if (isNaN(balance) || balance < 0) {
+            alert('Invalid balance');
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ balance })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            alert('Balance updated successfully!');
+            setEditingUserBalance(prev => {
+                const newState = { ...prev };
+                delete newState[userId];
+                return newState;
+            });
+
+            // Refresh users data
+            const { data: usersData } = await supabase
+                .from('users')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(50);
+
+            if (usersData) setUsers(usersData);
+
+        } catch (err: any) {
+            console.error('Update balance error:', err);
+            alert(`Failed to update balance: ${err.message}`);
         }
     };
 
@@ -264,16 +392,18 @@ export const AdminPanel: React.FC = () => {
             }, 0);
 
             // Calculate revenue (box price * opens) - payouts
-            const boxPrice = parseFloat(box.sale_price || box.price);
+            const boxPrice = parseFloat(box.sale_price || box.price) || 0;
             const revenue = (boxPrice * totalOpens) - totalValueWon;
-            const houseEdge = totalOpens > 0 ? ((revenue / (boxPrice * totalOpens)) * 100) : 0;
+            const houseEdge = (totalOpens > 0 && boxPrice > 0) ? ((revenue / (boxPrice * totalOpens)) * 100) : 0;
 
             // Calculate expected value
             const expectedValue = items.reduce((sum: number, item: any) => {
-                return sum + (parseFloat(item.value) * (parseFloat(item.odds) / 100));
+                const itemValue = parseFloat(item.value) || 0;
+                const itemOdds = parseFloat(item.odds) || 0;
+                return sum + (itemValue * (itemOdds / 100));
             }, 0);
 
-            const theoreticalHouseEdge = ((boxPrice - expectedValue) / boxPrice) * 100;
+            const theoreticalHouseEdge = (boxPrice > 0) ? ((boxPrice - expectedValue) / boxPrice) * 100 : 0;
 
             return {
                 ...box,
@@ -357,6 +487,7 @@ export const AdminPanel: React.FC = () => {
                     {[
                         { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
                         { id: 'users', label: 'Users', icon: Users },
+                        { id: 'streamers', label: 'Streamers', icon: Video },
                         { id: 'boxes', label: 'Boxes', icon: Box },
                         { id: 'deposits', label: 'Deposits', icon: DollarSign },
                         { id: 'shipments', label: 'Shipments', icon: Package },
@@ -414,28 +545,68 @@ export const AdminPanel: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold mb-6">Recent Users</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[600px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
                                             <th className="text-left p-3 text-slate-400">Username</th>
+                                            <th className="text-left p-3 text-slate-400">Email</th>
                                             <th className="text-left p-3 text-slate-400">Balance</th>
                                             <th className="text-left p-3 text-slate-400">Role</th>
-                                            <th className="text-left p-3 text-slate-400">Joined</th>
+                                            <th className="text-left p-3 text-slate-400 hidden md:table-cell">Joined</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {users.map((user) => (
-                                            <tr key={user.id} className="border-b border-white/5">
+                                            <tr key={user.id} className="border-b border-white/5 hover:bg-white/5">
                                                 <td className="p-3 font-mono text-xs">{user.id.substring(0, 8)}...</td>
                                                 <td className="p-3">{user.username}</td>
-                                                <td className="p-3">${parseFloat(user.balance || 0).toFixed(2)}</td>
+                                                <td className="p-3 text-sm text-slate-400">{user.email || '—'}</td>
+                                                <td className="p-3">
+                                                    {editingUserBalance[user.id] !== undefined ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="number"
+                                                                value={editingUserBalance[user.id]}
+                                                                onChange={(e) => setEditingUserBalance({ ...editingUserBalance, [user.id]: e.target.value })}
+                                                                className="w-24 bg-[#1a2332] border border-white/10 rounded px-2 py-1 text-white text-sm"
+                                                                step="0.01"
+                                                            />
+                                                            <button
+                                                                onClick={() => handleUpdateUserBalance(user.id, editingUserBalance[user.id])}
+                                                                className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                                                            >
+                                                                <Save className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setEditingUserBalance(prev => {
+                                                                    const newState = { ...prev };
+                                                                    delete newState[user.id];
+                                                                    return newState;
+                                                                })}
+                                                                className="text-red-400 hover:text-red-300 transition-colors"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-emerald-400 font-mono">${parseFloat(user.balance || 0).toFixed(2)}</span>
+                                                            <button
+                                                                onClick={() => setEditingUserBalance({ ...editingUserBalance, [user.id]: user.balance.toString() })}
+                                                                className="text-slate-400 hover:text-white transition-colors"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="p-3">
                                                     <span className={`px-2 py-1 rounded text-xs ${user.role === 'admin' ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-700/50 text-slate-400'}`}>
                                                         {user.role || 'user'}
                                                     </span>
                                                 </td>
-                                                <td className="p-3 text-slate-400 text-sm">
+                                                <td className="p-3 text-slate-400 text-sm hidden md:table-cell">
                                                     {new Date(user.created_at).toLocaleDateString()}
                                                 </td>
                                             </tr>
@@ -446,12 +617,16 @@ export const AdminPanel: React.FC = () => {
                         </div>
                     )}
 
+                    {activeTab === 'streamers' && clerkUser && (
+                        <StreamerManagement adminUser={{ id: clerkUser.id }} />
+                    )}
+
                     {/* Deposits tab with crypto transaction details */}
                     {activeTab === 'deposits' && (
                         <div>
                             <h2 className="text-xl font-bold mb-6">Deposits</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[700px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
@@ -504,7 +679,7 @@ export const AdminPanel: React.FC = () => {
                         <div>
                             <h2 className="text-xl font-bold mb-6">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="w-full min-w-[600px]">
                                     <thead>
                                         <tr className="border-b border-white/10">
                                             <th className="text-left p-3 text-slate-400">ID</th>
@@ -546,7 +721,13 @@ export const AdminPanel: React.FC = () => {
                                 <div key={box.id} className="bg-[#0b0f19] rounded-lg border border-white/5 p-6">
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center gap-4">
-                                            <img src={box.image} alt={box.name} className="w-20 h-20 rounded-lg object-cover" />
+                                            {box.image_url ? (
+                                                <img src={box.image_url} alt={box.name} className="w-20 h-20 rounded-lg object-cover" />
+                                            ) : (
+                                                <div className="w-20 h-20 rounded-lg bg-[#131b2e] flex items-center justify-center border border-white/10">
+                                                    <Box className="w-8 h-8 text-slate-600" />
+                                                </div>
+                                            )}
                                             <div>
                                                 <h3 className="text-lg font-bold">{box.name}</h3>
                                                 <p className="text-slate-400 text-sm">{box.description}</p>
@@ -588,7 +769,13 @@ export const AdminPanel: React.FC = () => {
                                                 <BarChart3 className="w-4 h-4" />
                                                 Items ({box.items.length})
                                             </h4>
-                                            <button className="text-purple-400 hover:text-purple-300 text-sm flex items-center gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    setSelectedBox(box);
+                                                    setShowAddItemModal(true);
+                                                }}
+                                                className="text-purple-400 hover:text-purple-300 text-sm flex items-center gap-1"
+                                            >
                                                 <Plus className="w-4 h-4" />
                                                 Add Item
                                             </button>
@@ -602,7 +789,15 @@ export const AdminPanel: React.FC = () => {
                                                             <p className="font-medium">{item.name}</p>
                                                             <div className="flex items-center gap-3 text-xs">
                                                                 <span className="text-green-400">${parseFloat(item.value).toFixed(2)}</span>
-                                                                <span className="text-slate-400">Odds: {parseFloat(item.odds).toFixed(2)}%</span>
+                                                                <span className="text-slate-400">
+                                                                    Odds: {(() => {
+                                                                        const odds = parseFloat(item.odds) || 0;
+                                                                        if (odds >= 0.01) return odds.toFixed(2);
+                                                                        if (odds >= 0.001) return odds.toFixed(3);
+                                                                        if (odds >= 0.0001) return odds.toFixed(4);
+                                                                        return odds.toFixed(5);
+                                                                    })()}%
+                                                                </span>
                                                                 <span className={`px-2 py-0.5 rounded ${
                                                                     item.rarity === 'legendary' ? 'bg-yellow-500/20 text-yellow-400' :
                                                                     item.rarity === 'epic' ? 'bg-purple-500/20 text-purple-400' :
@@ -615,10 +810,10 @@ export const AdminPanel: React.FC = () => {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <button className="text-slate-400 hover:text-white p-2 rounded hover:bg-white/5 transition-colors">
-                                                            <Edit className="w-4 h-4" />
-                                                        </button>
-                                                        <button className="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-500/10 transition-colors">
+                                                        <button
+                                                            onClick={() => handleDeleteItem(box, idx)}
+                                                            className="text-red-400 hover:text-red-300 p-2 rounded hover:bg-red-500/10 transition-colors"
+                                                        >
                                                             <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     </div>
@@ -706,6 +901,89 @@ export const AdminPanel: React.FC = () => {
                         </div>
                     )}
                 </div>
+
+                {/* Add Item Modal */}
+                {showAddItemModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-[#131b2e] rounded-2xl border border-white/10 p-6 max-w-md w-full">
+                            <h3 className="text-xl font-bold mb-4">Add Item to {selectedBox?.name}</h3>
+
+                            {error && (
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-4">
+                                    <p className="text-red-400 text-sm">{error}</p>
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Item Name</label>
+                                    <input
+                                        type="text"
+                                        value={newItemName}
+                                        onChange={(e) => setNewItemName(e.target.value)}
+                                        placeholder="e.g., Rare Pokemon Card"
+                                        className="w-full bg-[#0b0f19] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Value ($)</label>
+                                    <input
+                                        type="number"
+                                        value={newItemValue}
+                                        onChange={(e) => setNewItemValue(e.target.value)}
+                                        placeholder="e.g., 100.00"
+                                        step="0.01"
+                                        min="0"
+                                        className="w-full bg-[#0b0f19] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Odds (%)</label>
+                                    <input
+                                        type="number"
+                                        value={newItemOdds}
+                                        onChange={(e) => setNewItemOdds(e.target.value)}
+                                        placeholder="e.g., 5.00 or 0.01"
+                                        step="0.01"
+                                        min="0"
+                                        max="100"
+                                        className="w-full bg-[#0b0f19] border border-white/10 rounded-lg px-4 py-2 text-white focus:border-purple-500 focus:outline-none"
+                                    />
+                                    <p className="text-xs text-slate-400 mt-1">Enter percentage (e.g., 5 for 5%, 0.01 for 0.01%)</p>
+                                </div>
+
+                                <p className="text-xs text-slate-400 bg-[#0b0f19] rounded-lg p-3">
+                                    <strong>Note:</strong> A placeholder image will be used. Rarity will be auto-assigned based on value.
+                                </p>
+                            </div>
+
+                            <div className="flex gap-3 mt-6">
+                                <button
+                                    onClick={() => {
+                                        setShowAddItemModal(false);
+                                        setSelectedBox(null);
+                                        setNewItemName('');
+                                        setNewItemValue('');
+                                        setNewItemOdds('');
+                                        setError(null);
+                                    }}
+                                    className="flex-1 bg-slate-600 hover:bg-slate-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleAddItem}
+                                    disabled={savingItem}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {savingItem ? 'Adding...' : 'Add Item'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

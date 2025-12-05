@@ -128,6 +128,21 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
         <div className={`absolute inset-0 bg-gradient-to-br ${box.color} opacity-5`}></div>
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(168,85,247,0.1),transparent_70%)]"></div>
 
+        {/* LootVibe Watermark Logo - Positioned at top to avoid interference */}
+        <div className="absolute top-24 left-0 right-0 flex justify-center pointer-events-none z-10">
+          <div className="text-center animate-[fadeWatermark_4s_ease-out_forwards]">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <svg className="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M20 7L12 3L4 7M20 7L12 11M20 7V17L12 21M12 11L4 7M12 11V21M4 7V17L12 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className="text-2xl md:text-4xl font-bold">
+              <span className="text-white">LOOT</span><span className="text-purple-500">VIBE</span>
+            </div>
+            <div className="text-[10px] md:text-xs font-medium text-slate-400 tracking-widest mt-0.5">PROVABLY FAIR</div>
+          </div>
+        </div>
+
         {/* Center Indicator (The Needle) */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[260px] w-[2px] bg-yellow-400 z-30 shadow-[0_0_15px_rgba(250,204,21,1)] pointer-events-none">
           <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-6 h-6 bg-yellow-400 rotate-45 shadow-[0_0_10px_rgba(250,204,21,0.8)] border-4 border-[#0b0f19]"></div>

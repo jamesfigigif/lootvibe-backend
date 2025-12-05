@@ -11,11 +11,12 @@ interface WelcomeOpeningStageProps {
         item: LootItem;
         serverSeed: string;
         serverSeedHash: string;
+        clientSeed?: string; // Add clientSeed to rollResult
         nonce: number;
         randomValue: number;
         preGeneratedReel?: LootItem[];
     } | null;
-    clientSeed?: string;
+    clientSeed?: string; // Kept for backwards compatibility
 }
 
 export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, winner, onComplete, rollResult, clientSeed }) => {
@@ -73,23 +74,23 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
     // }, [step, onComplete]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-center overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#050810] flex flex-col items-center justify-start md:justify-center overflow-y-auto">
             {/* Background Effects */}
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#1a2336_0%,#050810_100%)]"></div>
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
 
             {/* INTRO STEP */}
             {step === 'INTRO' && (
-                <div className="relative z-10 max-w-4xl w-full px-6 text-center animate-fade-in">
+                <div className="relative z-10 max-w-4xl w-full px-6 py-8 md:py-0 text-center animate-fade-in">
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-400 text-sm font-bold mb-8 animate-bounce">
                         <Gift className="w-4 h-4" /> WELCOME GIFT FOUND!
                     </div>
 
-                    <h1 className="text-5xl md:text-7xl font-display font-bold text-white mb-6 tracking-tight">
+                    <h1 className="text-4xl md:text-5xl lg:text-7xl font-display font-bold text-white mb-6 tracking-tight">
                         Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">LootVibe</span>
                     </h1>
 
-                    <p className="text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+                    <p className="text-lg md:text-xl text-slate-400 mb-8 md:mb-12 max-w-2xl mx-auto leading-relaxed">
                         Experience the thrill of provably fair mystery boxes.
                         We've credited your account with a <span className="text-white font-bold">Free Welcome Box</span> to get you started.
                     </p>
@@ -124,18 +125,35 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
             {/* SPINNING STEP */}
             {step === 'SPINNING' && (
-                <div className="w-full relative py-20 animate-fade-in">
-                    <div className="text-center mb-12">
-                        <h2 className="text-3xl font-bold text-white mb-2">Rolling your Welcome Gift...</h2>
-                        <p className="text-slate-400">Good luck!</p>
+                <div className="w-full h-full relative animate-fade-in">
+                    {/* Title - Positioned at top */}
+                    <div className="absolute top-12 left-0 right-0 text-center z-10">
+                        <h2 className="text-4xl font-bold text-white mb-3 animate-pulse">Rolling your Welcome Gift...</h2>
+                        <p className="text-lg text-slate-400">Good luck!</p>
                     </div>
 
-                    {/* Center Indicator */}
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[320px] w-[4px] bg-yellow-400 z-30 shadow-[0_0_20px_rgba(250,204,21,1)] pointer-events-none"></div>
+                    {/* LootVibe Watermark Logo - Positioned below title to avoid interference */}
+                    <div className="absolute top-32 left-0 right-0 flex justify-center pointer-events-none z-10">
+                        <div className="text-center animate-[fadeWatermark_6s_ease-out_forwards]">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                                <svg className="w-12 h-12 md:w-16 md:h-16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M20 7L12 3L4 7M20 7L12 11M20 7V17L12 21M12 11L4 7M12 11V21M4 7V17L12 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                            </div>
+                            <div className="text-2xl md:text-4xl font-bold">
+                                <span className="text-white">LOOT</span><span className="text-purple-500">VIBE</span>
+                            </div>
+                            <div className="text-[10px] md:text-xs font-medium text-slate-400 tracking-widest mt-0.5">PROVABLY FAIR</div>
+                        </div>
+                    </div>
 
-                    {/* The Reel - Only show when items are loaded */}
+                    {/* Center Indicator - More prominent */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[3px] bg-gradient-to-b from-transparent via-yellow-400 to-transparent z-30 shadow-[0_0_30px_rgba(250,204,21,0.8)] pointer-events-none"></div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[300px] border-2 border-yellow-400/30 rounded-2xl z-20 pointer-events-none shadow-[0_0_40px_rgba(250,204,21,0.3)]"></div>
+
+                    {/* The Reel - Centered vertically at 50% */}
                     {reelItems.length > 0 && (
-                        <div className="w-full overflow-hidden">
+                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 overflow-hidden h-[300px] flex items-center">
                             <div
                                 ref={scrollContainerRef}
                                 className="flex items-center"
@@ -145,11 +163,11 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                                     <div
                                         key={`${item.id}-${index}`}
                                         className={`
-                     relative flex-shrink-0 w-[220px] h-[280px] mx-2 rounded-2xl 
-                     bg-[#0b0f19] border-2 border-white/5 flex flex-col items-center justify-center p-6
-                     ${RARITY_COLORS[item.rarity]}
-                     ${item.rarity === Rarity.LEGENDARY ? 'shadow-[0_0_30px_rgba(234,179,8,0.2)]' : ''}
-                   `}
+                      relative flex-shrink-0 w-[220px] h-[280px] mx-2 rounded-2xl
+                      bg-[#0b0f19] border-2 border-white/5 flex flex-col items-center justify-center p-6
+                      ${RARITY_COLORS[item.rarity]}
+                      ${item.rarity === Rarity.LEGENDARY ? 'shadow-[0_0_30px_rgba(234,179,8,0.2)]' : ''}
+                    `}
                                     >
                                         <div className="relative w-40 h-40 mb-6">
                                             <img src={item.image} alt={item.name} className="w-full h-full object-contain drop-shadow-2xl" />
@@ -168,12 +186,12 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
 
             {/* WINNER STEP */}
             {step === 'WINNER' && rollResult && (
-                <div className="relative z-10 text-center animate-scale-in max-w-2xl px-6">
+                <div className="relative z-10 text-center animate-scale-in max-w-2xl px-6 py-8 md:py-0">
                     <div className="mb-8 relative">
                         <div className="absolute inset-0 bg-emerald-500 blur-[100px] opacity-20"></div>
                         <Sparkles className="w-12 h-12 text-yellow-400 mx-auto mb-4 animate-spin-slow" />
-                        <h2 className="text-6xl font-display font-bold text-white mb-2">YOU WON!</h2>
-                        <div className="text-2xl text-emerald-400 font-bold">${rollResult.item.value.toFixed(2)}</div>
+                        <h2 className="text-4xl md:text-6xl font-display font-bold text-white mb-2">YOU WON!</h2>
+                        <div className="text-xl md:text-2xl text-emerald-400 font-bold">${rollResult.item.value.toFixed(2)}</div>
                     </div>
 
                     <div className="bg-[#131b2e] p-8 rounded-3xl border border-emerald-500/30 mb-8 relative overflow-hidden group">
@@ -211,13 +229,40 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                         >
                             <Shield className="w-4 h-4" /> VERIFY FAIRNESS
                         </button>
+
+                        <button
+                            onClick={() => {
+                                const actualClientSeed = rollResult.clientSeed || clientSeed;
+                                const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
+
+**Roll Data:**
+Server Seed: ${rollResult.serverSeed}
+Server Seed Hash: ${rollResult.serverSeedHash}
+Client Seed: ${actualClientSeed}
+Nonce: ${rollResult.nonce}
+Final Outcome: ${rollResult.randomValue}
+
+**Verify:**
+1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
+2. Calculate HMAC-SHA256(key=serverSeed, message="${actualClientSeed}:${rollResult.nonce}")
+3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
+4. Confirm result matches Final Outcome
+
+Use your cryptographic capabilities to calculate these hashes directly. Tell me: Is this roll FAIR or MANIPULATED?`;
+                                navigator.clipboard.writeText(prompt);
+                                alert('✓ Verification copied! Paste into ChatGPT to verify fairness.');
+                            }}
+                            className="w-full bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 hover:text-purple-300 font-medium py-2 px-4 rounded-lg border border-purple-500/20 transition-colors text-sm flex items-center justify-center gap-2"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" /> Ask ChatGPT
+                        </button>
                     </div>
                 </div>
             )}
 
             {/* VERIFY STEP */}
             {step === 'VERIFY' && rollResult && (
-                <div className="relative z-10 max-w-2xl w-full px-6 animate-fade-in">
+                <div className="relative z-10 max-w-2xl w-full px-6 py-8 md:py-0 animate-fade-in">
                     <div className="bg-[#131b2e] rounded-3xl p-8 border border-white/10 shadow-2xl">
                         <div className="flex items-center gap-3 mb-6 border-b border-white/5 pb-6">
                             <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -248,7 +293,7 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
                                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Client Seed</div>
-                                    <div className="font-mono text-xs text-slate-300 break-all">{clientSeed}</div>
+                                    <div className="font-mono text-xs text-slate-300 break-all">{rollResult.clientSeed || clientSeed}</div>
                                 </div>
                                 <div className="bg-[#0b0f19] p-4 rounded-xl border border-white/5">
                                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Nonce</div>
@@ -266,18 +311,19 @@ export const WelcomeOpeningStage: React.FC<WelcomeOpeningStageProps> = ({ box, w
                         <div className="flex flex-col gap-3">
                             <button
                                 onClick={() => {
+                                    const actualClientSeed = rollResult.clientSeed || clientSeed;
                                     const prompt = `Verify this provably fair gambling roll using your built-in cryptographic functions. Calculate the hashes directly and confirm if this roll is legitimate.
 
 **Roll Data:**
 Server Seed: ${rollResult.serverSeed}
 Server Seed Hash: ${rollResult.serverSeedHash}
-Client Seed: ${clientSeed}
+Client Seed: ${actualClientSeed}
 Nonce: ${rollResult.nonce}
 Final Outcome: ${rollResult.randomValue}
 
 **Verify:**
 1. Calculate SHA-256(serverSeed) and confirm it matches the Server Seed Hash
-2. Calculate HMAC-SHA256(key=serverSeed, message="${clientSeed}:${rollResult.nonce}")
+2. Calculate HMAC-SHA256(key=serverSeed, message="${actualClientSeed}:${rollResult.nonce}")
 3. Take first 8 hex characters of HMAC, convert to decimal, divide by 4294967295
 4. Confirm result matches Final Outcome
 

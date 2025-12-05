@@ -149,6 +149,7 @@ serve(async (req) => {
                 item: winningItem,
                 serverSeed: serverSeed,
                 serverSeedHash: serverSeedHash,
+                clientSeed: clientSeed, // CRITICAL: Include the clientSeed that was actually used!
                 nonce: nonce,
                 randomValue: randomValue, // Already 0-1 from HMAC calculation
                 block: { height: 840000, hash: hmac.substring(0, 64) } // Use HMAC as "block hash" for verification
