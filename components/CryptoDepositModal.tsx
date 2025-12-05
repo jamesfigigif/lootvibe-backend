@@ -18,6 +18,7 @@ export const CryptoDepositModal: React.FC<CryptoDepositModalProps> = ({ isOpen, 
     const [depositStatus, setDepositStatus] = useState<any>(null);
 
     const BACKEND_URL = (import.meta as any).env.VITE_BACKEND_URL || 'http://localhost:3001';
+    const IS_TESTNET = (import.meta as any).env.VITE_CRYPTO_TESTNET === 'true';
 
     // Generate deposit address
     useEffect(() => {
@@ -101,7 +102,7 @@ export const CryptoDepositModal: React.FC<CryptoDepositModalProps> = ({ isOpen, 
             const response = await fetch(`${BACKEND_URL}/api/deposits/generate-address`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, currency })
+                body: JSON.stringify({ userId, currency, testnet: IS_TESTNET })
             });
 
             const data = await response.json();
@@ -126,10 +127,18 @@ export const CryptoDepositModal: React.FC<CryptoDepositModalProps> = ({ isOpen, 
     };
 
     const getExplorerUrl = (txHash: string) => {
-        if (currency === 'BTC') {
-            return `https://blockchair.com/bitcoin/transaction/${txHash}`;
+        if (IS_TESTNET) {
+            if (currency === 'BTC') {
+                return `https://blockchair.com/bitcoin/testnet/transaction/${txHash}`;
+            } else {
+                return `https://sepolia.etherscan.io/tx/${txHash}`;
+            }
         } else {
-            return `https://etherscan.io/tx/${txHash}`;
+            if (currency === 'BTC') {
+                return `https://blockchair.com/bitcoin/transaction/${txHash}`;
+            } else {
+                return `https://etherscan.io/tx/${txHash}`;
+            }
         }
     };
 
@@ -181,8 +190,17 @@ export const CryptoDepositModal: React.FC<CryptoDepositModalProps> = ({ isOpen, 
                             <Wallet className="w-6 h-6 text-white" />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-bold font-display text-white">Deposit {currencyName}</h2>
-                            <p className="text-sm text-slate-400">Send {currency} to your unique address</p>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-2xl font-bold font-display text-white">Deposit {currencyName}</h2>
+                                {IS_TESTNET && (
+                                    <span className="px-2 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md uppercase">
+                                        Testnet
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-sm text-slate-400">
+                                {IS_TESTNET ? `Send ${currency} on testnet` : `Send ${currency} to your unique address`}
+                            </p>
                         </div>
                     </div>
                     <button
