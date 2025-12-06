@@ -109,6 +109,7 @@ export default function App() {
 
     // Opening State
     const [isOpening, setIsOpening] = useState(false);
+    const [isClaimingPrize, setIsClaimingPrize] = useState(false);
     const [rollResult, setRollResult] = useState<{ item: LootItem; serverSeed: string; serverSeedHash: string; nonce: number; randomValue: number } | null>(null);
     const [showResultModal, setShowResultModal] = useState(false);
 
@@ -895,7 +896,8 @@ export default function App() {
     }, []);
 
     const handleSellItem = React.useCallback(async () => {
-        if (!user || !rollResult) return;
+        if (!user || !rollResult || isClaimingPrize) return;
+        setIsClaimingPrize(true);
         try {
             // Check if running in local dev mode first
             const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -981,11 +983,14 @@ export default function App() {
         } catch (error) {
             console.error('❌ Error exchanging item:', error);
             alert(`Failed to exchange item: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`);
+        } finally {
+            setIsClaimingPrize(false);
         }
-    }, [user, rollResult, resetOpenState]);
+    }, [user, rollResult, resetOpenState, isClaimingPrize]);
 
     const handleKeepItem = React.useCallback(async () => {
-        if (!user || !rollResult) return;
+        if (!user || !rollResult || isClaimingPrize) return;
+        setIsClaimingPrize(true);
         try {
             // NOTE: Item is already added to inventory by the box-open edge function
             // This is just a UI action to close the modal and refresh the user state
@@ -1014,8 +1019,10 @@ export default function App() {
         } catch (error) {
             console.error('❌ Error refreshing inventory:', error);
             alert('Failed to refresh inventory. Please try again.');
+        } finally {
+            setIsClaimingPrize(false);
         }
-    }, [user, rollResult, resetOpenState, selectedBox]);
+    }, [user, rollResult, resetOpenState, selectedBox, isClaimingPrize]);
 
     const handleShipItems = (items: LootItem[]) => {
         // Filter out items that are already being processed
@@ -1852,9 +1859,10 @@ export default function App() {
 
                                         <button
                                             onClick={handleOpenBox}
-                                            className="relative z-20 w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all transform active:scale-95 border-t border-white/10"
+                                            disabled={isOpening}
+                                            className="relative z-20 w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-[0_0_30px_rgba(147,51,234,0.3)] transition-all transform active:scale-95 border-t border-white/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                                         >
-                                            {user ? 'OPEN NOW' : 'SIGN IN TO OPEN'}
+                                            {isOpening ? 'OPENING...' : (user ? 'OPEN NOW' : 'SIGN IN TO OPEN')}
                                         </button>
 
                                         <button
@@ -2212,10 +2220,11 @@ export default function App() {
                                         <>
                                             <button
                                                 onClick={handleSellItem}
-                                                className="group relative overflow-hidden bg-[#0b0f19] hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 rounded-2xl py-4 transition-all duration-300"
+                                                disabled={isClaimingPrize}
+                                                className="group relative overflow-hidden bg-[#0b0f19] hover:bg-red-500/10 border border-white/10 hover:border-red-500/50 rounded-2xl py-4 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex flex-col items-center gap-1 relative z-10">
-                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide group-hover:text-red-400 transition-colors">Exchange For</span>
+                                                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide group-hover:text-red-400 transition-colors">{isClaimingPrize ? 'Processing...' : 'Exchange For'}</span>
                                                     <span className="flex items-center gap-1 font-mono font-bold text-lg group-hover:text-white transition-colors">
                                                         <DollarSign className="w-4 h-4 text-emerald-500" /> {rollResult.item.value}
                                                     </span>
@@ -2224,12 +2233,13 @@ export default function App() {
 
                                             <button
                                                 onClick={handleKeepItem}
-                                                className="group relative overflow-hidden bg-white hover:bg-slate-200 text-black rounded-2xl py-4 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+                                                disabled={isClaimingPrize}
+                                                className="group relative overflow-hidden bg-white hover:bg-slate-200 text-black rounded-2xl py-4 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
                                             >
                                                 <div className="flex flex-col items-center gap-1 relative z-10">
-                                                    <span className="text-[10px] font-bold opacity-60 uppercase tracking-wide">Add To Inventory</span>
+                                                    <span className="text-[10px] font-bold opacity-60 uppercase tracking-wide">{isClaimingPrize ? 'Adding...' : 'Add To Inventory'}</span>
                                                     <span className="flex items-center gap-2 font-bold text-lg">
-                                                        Collect <Check className="w-4 h-4" />
+                                                        {isClaimingPrize ? 'Processing' : 'Collect'} <Check className="w-4 h-4" />
                                                     </span>
                                                 </div>
                                             </button>
