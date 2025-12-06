@@ -214,7 +214,7 @@ export const addTransaction = async (
 
         if (type === 'DEPOSIT' || type === 'WIN') {
             newBalance = currentBalance + amount;
-        } else if (type === 'WITHDRAWAL' || type === 'BET' || type === 'PURCHASE') {
+        } else if (type === 'WITHDRAWAL' || type === 'BET' || type === 'PURCHASE' || type === 'SHIPPING') {
             if (currentBalance < amount) {
                 throw new Error('Insufficient funds');
             }
