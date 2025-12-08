@@ -50,7 +50,7 @@ export const OpeningStage: React.FC<OpeningStageProps> = ({ box, winner, onBack,
       console.log('🔄 Preloading reel images...');
 
       // Get unique images to load
-      const uniqueImages = Array.from(new Set(reelItems.map(item => item.image)));
+      const uniqueImages = Array.from(new Set(reelItems.map(item => item.image as string)));
 
       const loadPromises = uniqueImages.map(src => {
         return new Promise((resolve, reject) => {
