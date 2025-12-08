@@ -881,11 +881,66 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ battle, user, onBack, 
                         // Go through full animation flow for sudden death
                         setGameStatus('STARTING');
                     } else {
+                        console.log('✅ DEBUG: Entering battle finish logic');
                         console.log('✅ Battle finished! Winner:', sortedPlayers[0]?.id, 'with score:', sortedPlayers[0]?.totalValue);
-                        // Force immediate transition to FINISHED
-                        setGameStatus('FINISHED');
-                        // Ensure results are set
-                        setResults(currentScores);
+
+                        // ✅ SECURITY: Call battle-finish Edge Function to securely determine winner server-side
+                        const executeSecureBattleFinish = async () => {
+                            try {
+                                const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+                                if (!anonKey) {
+                                    console.error('❌ DEBUG: VITE_SUPABASE_ANON_KEY is missing!');
+                                    throw new Error('Missing API key');
+                                }
+
+                                // Prepare player results for server verification
+                                const playerResults = sortedPlayers.map(player => ({
+                                    playerId: player.id,
+                                    items: player.items,
+                                    totalValue: player.totalValue
+                                }));
+
+                                console.log('🔒 DEBUG: Calling battle-finish Edge Function with results:', playerResults);
+
+                                const { data, error } = await supabase.functions.invoke('battle-finish', {
+                                    headers: {
+                                        Authorization: `Bearer ${anonKey}`
+                                    },
+                                    body: {
+                                        battleId: battle.id,
+                                        playerResults
+                                    }
+                                });
+
+                                if (error) {
+                                    console.error('❌ DEBUG: battle-finish error:', error);
+                                    throw error;
+                                }
+                                if (!data.success) {
+                                    console.error('❌ DEBUG: battle-finish failed:', data);
+                                    throw new Error(data.error || 'Failed to finish battle');
+                                }
+
+                                console.log('✅ DEBUG: Battle finished securely on server. Winner:', data.winner.playerId);
+                                return data;
+                            } catch (error) {
+                                console.error('❌ DEBUG: Error finishing battle:', error);
+                                alert('Failed to finish battle securely. Please try again.');
+                                throw error; // Re-throw to prevent transition
+                            }
+                        };
+
+                        // Call battle-finish and then transition to FINISHED
+                        console.log('🔄 DEBUG: Invoking executeSecureBattleFinish...');
+                        executeSecureBattleFinish().then((data) => {
+                            console.log('✅ DEBUG: executeSecureBattleFinish success! Transitioning to FINISHED');
+                            // Force immediate transition to FINISHED
+                            setGameStatus('FINISHED');
+                            // Ensure results are set
+                            setResults(currentScores);
+                        }).catch(err => {
+                            console.error('❌ DEBUG: executeSecureBattleFinish caught error, NOT transitioning to FINISHED', err);
+                        });
                     }
                 } else {
                     // Next round - increment round number and reset state
@@ -1099,35 +1154,35 @@ export const BattleArena: React.FC<BattleArenaProps> = ({ battle, user, onBack, 
                 ))}
             </div>
 
-            <div className="relative z-20 h-24 border-b border-white/5 bg-[#0b0f19]/80 backdrop-blur flex items-center justify-between px-6 md:px-12">
+            <div className="relative z-20 h-20 md:h-24 border-b border-white/5 bg-[#0b0f19]/80 backdrop-blur flex items-center justify-between px-3 md:px-12">
                 <button
                     onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         onBack();
                     }}
-                    className="text-slate-400 hover:text-white flex items-center gap-2 font-bold text-sm bg-white/5 px-4 py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                    className="text-slate-400 hover:text-white flex items-center gap-1 md:gap-2 font-bold text-xs md:text-sm bg-white/5 px-2 md:px-4 py-1.5 md:py-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
                 >
-                    <ArrowLeft className="w-4 h-4" /> LEAVE
+                    <ArrowLeft className="w-3 h-3 md:w-4 md:h-4" /> <span className="hidden sm:inline">LEAVE</span>
                 </button>
 
-                <div className="flex flex-col items-center max-w-[50%] md:max-w-none text-center">
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-bold tracking-widest uppercase mb-1 justify-center">
-                        {isCrazyMode ? <Skull className="w-3 h-3 text-purple-500" /> : <Zap className="w-3 h-3 text-yellow-500 fill-current" />}
-                        {currentRound > battle.roundCount ? <span className="text-red-500 animate-pulse">SUDDEN DEATH</span> : `Round ${currentRound} / ${battle.roundCount}`}
+                <div className="flex flex-col items-center flex-1 mx-2 text-center">
+                    <div className="flex items-center gap-1 md:gap-2 text-[9px] md:text-xs text-slate-500 font-bold tracking-widest uppercase mb-0.5 md:mb-1 justify-center">
+                        {isCrazyMode ? <Skull className="w-2.5 h-2.5 md:w-3 md:h-3 text-purple-500" /> : <Zap className="w-2.5 h-2.5 md:w-3 md:h-3 text-yellow-500 fill-current" />}
+                        {currentRound > battle.roundCount ? <span className="text-red-500 animate-pulse text-[8px] md:text-xs">SUDDEN DEATH</span> : <span className="text-[8px] md:text-xs">Round {currentRound} / {battle.roundCount}</span>}
                     </div>
-                    <div className="text-white font-display font-bold text-lg md:text-2xl tracking-wide drop-shadow-md flex flex-col md:flex-row items-center justify-center gap-1 md:gap-2 leading-tight">
-                        <span>{box.name}</span>
-                        {isCrazyMode && <span className="bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded">CRAZY MODE</span>}
+                    <div className="text-white font-display font-bold text-sm md:text-2xl tracking-wide drop-shadow-md flex flex-col md:flex-row items-center justify-center gap-0.5 md:gap-2 leading-tight">
+                        <span className="text-center break-words max-w-[200px] md:max-w-none">{box.name}</span>
+                        {isCrazyMode && <span className="bg-purple-600 text-white text-[8px] md:text-[10px] px-1.5 md:px-2 py-0.5 rounded">CRAZY MODE</span>}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-6 py-2 rounded-xl shadow-lg shadow-emerald-900/20">
-                    <Coins className="w-5 h-5 text-emerald-400" />
+                <div className="flex items-center gap-1.5 md:gap-3 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-2 md:px-6 py-1.5 md:py-2 rounded-lg md:rounded-xl shadow-lg shadow-emerald-900/20">
+                    <Coins className="w-3 h-3 md:w-5 md:h-5 text-emerald-400" />
                     <div className="flex flex-col items-end leading-none">
-                        <span className="text-[10px] text-emerald-500/80 font-bold uppercase">Prize Pool</span>
-                        <span className="text-emerald-400 font-mono font-bold text-lg">${totalPot.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        <span className="text-[9px] text-slate-500 font-bold">(5% platform fee)</span>
+                        <span className="text-[8px] md:text-[10px] text-emerald-500/80 font-bold uppercase hidden md:block">Prize Pool</span>
+                        <span className="text-emerald-400 font-mono font-bold text-xs md:text-lg">${totalPot.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        <span className="text-[7px] md:text-[9px] text-slate-500 font-bold hidden md:block">(5% platform fee)</span>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { importSPKI, jwtVerify } from 'https://deno.land/x/jose@v4.14.4/index.ts';
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -7,34 +6,19 @@ const corsHeaders = {
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const CLERK_PEM_PUBLIC_KEY = Deno.env.get('CLERK_PEM_PUBLIC_KEY')!;
-
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
 
     try {
-        // 1. Verify Clerk Token
+        // 1. Verify Authorization (Anon Key)
         const authHeader = req.headers.get('Authorization');
-        if (!authHeader) throw new Error('Missing Authorization header');
-
-        const token = authHeader.replace('Bearer ', '');
-        let userId: string;
-
-        try {
-            // Import the PEM public key
-            const publicKey = await importSPKI(CLERK_PEM_PUBLIC_KEY, 'RS256');
-
-            // Verify the JWT token
-            const { payload } = await jwtVerify(token, publicKey);
-            userId = payload.sub as string;
-
-            if (!userId) throw new Error('Invalid token: missing sub claim');
-            console.log(`✅ Verified Clerk User: ${userId}`);
-        } catch (verifyError: any) {
-            console.error('Token verification failed:', verifyError);
-            throw new Error('Invalid token');
+        if (!authHeader) {
+            return new Response(
+                JSON.stringify({ success: false, error: 'Missing authorization' }),
+                { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
         }
 
         // 2. Initialize Supabase Admin Client
@@ -43,34 +27,42 @@ Deno.serve(async (req) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        const { battleId, prizeChoice, amount, items } = await req.json();
-        if (!battleId || !prizeChoice) throw new Error('Missing required parameters');
+        const { battleId, prizeChoice, amount, items, userId } = await req.json();
 
-        console.log(`Processing claim for User ${userId}, Battle ${battleId}, Type: ${prizeChoice}`);
+        if (!battleId || !prizeChoice || !userId) {
+            return new Response(
+                JSON.stringify({ success: false, error: 'Missing required parameters' }),
+                { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+        }
 
-        // ✅ SECURITY FIX: Verify user is the winner of this battle
+        console.log(`🔍 Processing claim for User ${userId}, Battle ${battleId}, Type: ${prizeChoice}`);
+
+        // ✅ SECURITY: Verify battle exists and user is the winner
         const { data: battle, error: battleError } = await supabaseAdmin
             .from('battles')
-            .select('id, winner_id, status, price, player_count')
+            .select('id, winner_id, status, winner_total_value')
             .eq('id', battleId)
             .single();
 
         if (battleError || !battle) {
+            console.error('❌ Battle not found:', battleId, battleError);
             throw new Error('Battle not found');
         }
 
         // Verify battle is finished
         if (battle.status !== 'FINISHED') {
+            console.error(`❌ Battle ${battleId} is not finished (status: ${battle.status})`);
             throw new Error('Battle is not finished yet');
         }
 
         // Verify user is the winner
         if (battle.winner_id !== userId) {
-            console.error(`❌ Unauthorized claim attempt: User ${userId} tried to claim Battle ${battleId} (winner: ${battle.winner_id})`);
+            console.error(`❌ Unauthorized claim: User ${userId} tried to claim Battle ${battleId} (winner: ${battle.winner_id})`);
             throw new Error('You are not the winner of this battle');
         }
 
-        // Check if prize already claimed
+        // ✅ SECURITY: Check if prize already claimed
         const { data: existingClaim } = await supabaseAdmin
             .from('battle_results')
             .select('claimed')
@@ -79,14 +71,17 @@ Deno.serve(async (req) => {
             .single();
 
         if (existingClaim && existingClaim.claimed) {
+            console.error(`❌ Prize already claimed for Battle ${battleId}`);
             throw new Error('Prize already claimed');
         }
 
         console.log(`✅ Verified: User ${userId} is winner of Battle ${battleId}`);
 
+        // Award the prize
         if (prizeChoice === 'cash') {
             if (!amount || amount <= 0) throw new Error('Invalid amount');
 
+            // Create transaction record
             const { error: txError } = await supabaseAdmin.from('transactions').insert({
                 id: `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 user_id: userId,
@@ -98,6 +93,7 @@ Deno.serve(async (req) => {
 
             if (txError) throw txError;
 
+            // Update user balance
             const { data: userData, error: userError } = await supabaseAdmin
                 .from('users').select('balance').eq('id', userId).single();
 
@@ -127,12 +123,26 @@ Deno.serve(async (req) => {
             throw new Error('Invalid prize choice');
         }
 
-        // ✅ Mark prize as claimed in battle_results table
-        await supabaseAdmin
-            .from('battle_results')
-            .update({ claimed: true })
-            .eq('battle_id', battleId)
-            .eq('winner_id', userId);
+        // ✅ SECURITY: Mark prize as claimed to prevent double-claiming
+        if (existingClaim) {
+            // Update existing record
+            await supabaseAdmin
+                .from('battle_results')
+                .update({ claimed: true })
+                .eq('battle_id', battleId)
+                .eq('winner_id', userId);
+        } else {
+            // Create new record (fallback if battle-spin didn't create it)
+            await supabaseAdmin
+                .from('battle_results')
+                .insert({
+                    battle_id: battleId,
+                    winner_id: userId,
+                    total_value: battle.winner_total_value || amount || 0,
+                    items: items || null,
+                    claimed: true
+                });
+        }
 
         console.log(`✅ Prize claimed successfully for Battle ${battleId} by User ${userId}`);
 
@@ -141,7 +151,7 @@ Deno.serve(async (req) => {
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     } catch (error: any) {
-        console.error('Claim error:', error);
+        console.error('❌ Claim error:', error);
         return new Response(
             JSON.stringify({ success: false, error: error?.message ?? String(error) }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }

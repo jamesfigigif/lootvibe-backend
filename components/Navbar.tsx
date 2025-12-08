@@ -195,12 +195,21 @@ export const Navbar: React.FC<NavbarProps> = ({ user, onLogin, onLogout, onDepos
               <div className="relative md:hidden group">
                 <button
                   onClick={() => setIsMobileBalanceOpen(!isMobileBalanceOpen)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-2 py-1 rounded-lg hover:border-emerald-500/50 transition-all"
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-900/40 to-emerald-950/40 border border-emerald-500/20 px-2 py-1 rounded-lg hover:border-emerald-500/50 transition-all"
                 >
-                  <Wallet className="w-4 h-4 text-emerald-400" />
+                  {showBalance ? <EyeOff className="w-4 h-4 text-emerald-400" /> : <Wallet className="w-4 h-4 text-emerald-400" />}
                   <span className="font-mono font-bold text-emerald-400 text-sm">
                     {showBalance ? `$${displayedBalance.toFixed(2)}` : '****'}
                   </span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowBalance(!showBalance);
+                    }}
+                    className="ml-0.5 text-emerald-400/60 hover:text-emerald-400 transition-colors"
+                  >
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
                 </button>
 
                 {/* Mobile Balance Dropdown */}

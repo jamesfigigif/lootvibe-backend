@@ -139,6 +139,18 @@ serve(async (req) => {
 
         // Create battle
         const battleId = `battle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+        // For FINISHED battles, randomly determine winner and calculate total value
+        let winnerId = null
+        let winnerTotalValue = 0
+
+        if (battleStatus === 'FINISHED') {
+            // Randomly pick a winner (bot1 or bot2)
+            winnerId = Math.random() < 0.5 ? bot1Id : bot2Id
+            // Generate random total value between 50% and 150% of box price
+            winnerTotalValue = boxPrice * (0.5 + Math.random())
+        }
+
         const battle = {
             id: battleId,
             box_id: randomBox.id,
@@ -147,7 +159,9 @@ serve(async (req) => {
             round_count: roundCount,
             mode: 'STANDARD',
             status: battleStatus,
-            players: JSON.stringify(playersArray)
+            players: JSON.stringify(playersArray),
+            winner_id: winnerId,
+            winner_total_value: winnerTotalValue
         }
 
         // Insert battle into database
@@ -162,7 +176,7 @@ serve(async (req) => {
         }
 
         const statusEmoji = battleStatus === 'WAITING' ? '🟢' : '🔴'
-        console.log(`${statusEmoji} Created random 1v1 battle: ${battleId} with box ${randomBox.name} ($${boxPrice}) - Status: ${battleStatus}`)
+        console.log(`${statusEmoji} Created random 1v1 battle: ${battleId} with box ${randomBox.name} ($${boxPrice}) - Status: ${battleStatus}${winnerId ? ` - Winner: ${winnerId}` : ''}`)
 
         return new Response(
             JSON.stringify({
